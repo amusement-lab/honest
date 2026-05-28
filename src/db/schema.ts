@@ -10,6 +10,7 @@ export const notes = pgTable('notes', {
   price: numeric('price').notNull(),
   category: varchar('category').notNull(),
   totalPrice: numeric('total_price').notNull(),
+  status: varchar('status').notNull().default('pending'),
 });
 
 export const userTable = pgTable("users", {

@@ -1,3 +1,30 @@
+### About
+
+I love NestJS and their workflow, but sadly, cloudflare cannot compatible for NestJS.
+This porject just a template for mimic NestJS workflow.
+
+### Architecture
+
+This template mimics NestJS's **folder structure** and **separation of concerns** (controllers, services, entities) while staying lightweight and fully compatible with Cloudflare Workers.
+
+#### Currently Implemented
+- Module-based folder structure (`src/module/`)
+- Separation of concerns: controllers, services, entities
+- Auto-generated OpenAPI/Swagger docs (`/doc-ui`)
+- Global error handling
+- Drizzle ORM + PostgreSQL setup with Docker Compose
+- Route utility (`CreateRouteUtil`) for standardized route definitions
+
+#### Planned Enhancements
+- Dependency Injection / IoC container
+- Decorator-based routing (`@Get`, `@Post`, `@Controller`, `@Injectable`)
+- Guards (authentication, role-based access)
+- Interceptors (logging, response transformation)
+- Pipes (automatic Zod validation)
+- Exception filters (per-controller error handling)
+- Wire Drizzle ORM into services
+- Complete user module (full CRUD)
+
 ### Dependencies Version
 
 - `nodejs` >= `24.7.0`

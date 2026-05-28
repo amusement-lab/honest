@@ -1,260 +1,96 @@
-// inspiration source : https://github.com/SyahrulBhudiF/Hono-Starter-Code/blob/master/src/route/user-route.ts
-
 import { createRoute, z } from "@hono/zod-openapi";
+
+export const ErrorResponseSchema = z.object({
+  message: z.string().openapi({ example: "Error message" }),
+}).openapi("ErrorResponse");
+
+type HttpMethod = "post" | "get" | "put" | "patch" | "delete";
 
 class CreateRouteUtil {
   constructor(
     public tags: string[],
-    public security?: Parameters<typeof createRoute>[0]['security'],
-  ) { }
+    public security?: Parameters<typeof createRoute>[0]["security"],
+  ) {}
 
   createRouteUtil(option: {
-    method: "post" | "get" | "put" | "patch" | "delete",
-    path: string,
-    responseSchema: z.ZodType<any>, // currently use `any` before get the better type
-    requestSchema?: z.ZodType<any>, // currently use `any` before get the better type
-    description?: string,
-  }
-  ) {
+    method: HttpMethod;
+    path: string;
+    responseSchema?: z.ZodType;
+    requestSchema?: z.ZodType;
+    paramsSchema?: z.ZodType;
+    querySchema?: z.ZodType;
+    headersSchema?: z.ZodType;
+    description?: string;
+    status?: number;
+  }) {
+    const request: Record<string, unknown> = {};
+
+    if (option.paramsSchema) {
+      request.params = option.paramsSchema;
+    }
+    if (option.querySchema) {
+      request.query = option.querySchema;
+    }
+    if (option.headersSchema) {
+      request.headers = option.headersSchema;
+    }
+    if (option.requestSchema) {
+      request.body = {
+        content: {
+          "application/json": {
+            schema: option.requestSchema,
+          },
+        },
+      };
+    }
+
+    const status = option.status ?? 200;
+
     return createRoute({
       method: option.method,
       path: option.path,
       description: option.description,
       tags: this.tags,
       security: this.security,
-      ...(option.requestSchema ? {
-        request: {
-          body: {
-            content: {
-              "application/json": {
-                schema: option.requestSchema,
-              },
-            },
-          },
-        },
-      } : {}),
+      ...(Object.keys(request).length > 0 ? { request } : {}),
       responses: {
-        200: {
-          content: {
-            "application/json": {
-              schema: option.responseSchema,
-            },
-          },
+        [status]: {
+          content: option.responseSchema
+            ? {
+                "application/json": {
+                  schema: option.responseSchema,
+                },
+              }
+            : undefined,
           description: "Success",
         },
-        // 400: {
-        //   description: "Bad Request",
-        //   content: {
-        //     "application/json": {
-        //       schema: z.object({
-        //         status: z.string(),
-        //         message: z.string(),
-        //         data: z.null(),
-        //       }),
-        //       example: {
-        //         status: "error",
-        //         message: "Invalid request data",
-        //         data: null,
-        //       },
-        //     },
-        //   },
-        // },
-        // 401: {
-        //   description: "Unauthorized",
-        //   content: {
-        //     "application/json": {
-        //       schema: z.object({
-        //         status: z.string(),
-        //         message: z.string(),
-        //         data: z.null(),
-        //       }),
-        //       example: {
-        //         status: "error",
-        //         message: "Unauthorized access",
-        //         data: null,
-        //       },
-        //     },
-        //   },
-        // },
-        // 403: {
-        //   description: "Forbidden",
-        //   content: {
-        //     "application/json": {
-        //       schema: z.object({
-        //         status: z.string(),
-        //         message: z.string(),
-        //         data: z.null(),
-        //       }),
-        //       example: {
-        //         status: "error",
-        //         message: "Access forbidden",
-        //         data: null,
-        //       },
-        //     },
-        //   },
-        // },
-        // 404: {
-        //   description: "Not Found",
-        //   content: {
-        //     "application/json": {
-        //       schema: z.object({
-        //         status: z.string(),
-        //         message: z.string(),
-        //         data: z.null(),
-        //       }),
-        //       example: {
-        //         status: "error",
-        //         message: "Resource not found",
-        //         data: null,
-        //       },
-        //     },
-        //   },
-        // },
-        // 500: {
-        //   description: "Internal Server Error",
-        //   content: {
-        //     "application/json": {
-        //       schema: z.object({
-        //         status: z.string(),
-        //         message: z.string(),
-        //         data: z.null(),
-        //       }),
-        //       example: {
-        //         status: "error",
-        //         message: "Internal server error",
-        //         data: null,
-        //       },
-        //     },
-        //   },
-        // },
+        400: {
+          content: {
+            "application/json": {
+              schema: ErrorResponseSchema,
+            },
+          },
+          description: "Bad Request",
+        },
+        404: {
+          content: {
+            "application/json": {
+              schema: ErrorResponseSchema,
+            },
+          },
+          description: "Not Found",
+        },
+        500: {
+          content: {
+            "application/json": {
+              schema: ErrorResponseSchema,
+            },
+          },
+          description: "Internal Server Error",
+        },
       },
     });
   }
 }
 
-const createRouteUtil2 = (option: {
-  method: "post" | "get" | "put" | "patch" | "delete",
-  path: string,
-  tags: string[],
-  responseSchema: ZodType,
-  requestSchema?: ZodType,
-  security?: Parameters<typeof createRoute>[0]['security'],
-  description?: string,
-}
-) => {
-  return createRoute({
-    method: option.method,
-    path: option.path,
-    description: option.description,
-    tags: option.tags,
-    security: option.security,
-    ...(option.requestSchema ? {
-      request: {
-        body: {
-          content: {
-            "application/json": {
-              schema: option.requestSchema,
-            },
-          },
-        },
-      },
-    } : {}),
-    responses: {
-      200: {
-        description: "Success",
-        content: {
-          "application/json": {
-            schema: option.responseSchema,
-          },
-        },
-      },
-      // 400: {
-      //   description: "Bad Request",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         status: z.string(),
-      //         message: z.string(),
-      //         data: z.null(),
-      //       }),
-      //       example: {
-      //         status: "error",
-      //         message: "Invalid request data",
-      //         data: null,
-      //       },
-      //     },
-      //   },
-      // },
-      // 401: {
-      //   description: "Unauthorized",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         status: z.string(),
-      //         message: z.string(),
-      //         data: z.null(),
-      //       }),
-      //       example: {
-      //         status: "error",
-      //         message: "Unauthorized access",
-      //         data: null,
-      //       },
-      //     },
-      //   },
-      // },
-      // 403: {
-      //   description: "Forbidden",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         status: z.string(),
-      //         message: z.string(),
-      //         data: z.null(),
-      //       }),
-      //       example: {
-      //         status: "error",
-      //         message: "Access forbidden",
-      //         data: null,
-      //       },
-      //     },
-      //   },
-      // },
-      // 404: {
-      //   description: "Not Found",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         status: z.string(),
-      //         message: z.string(),
-      //         data: z.null(),
-      //       }),
-      //       example: {
-      //         status: "error",
-      //         message: "Resource not found",
-      //         data: null,
-      //       },
-      //     },
-      //   },
-      // },
-      // 500: {
-      //   description: "Internal Server Error",
-      //   content: {
-      //     "application/json": {
-      //       schema: z.object({
-      //         status: z.string(),
-      //         message: z.string(),
-      //         data: z.null(),
-      //       }),
-      //       example: {
-      //         status: "error",
-      //         message: "Internal server error",
-      //         data: null,
-      //       },
-      //     },
-      //   },
-      // },
-    },
-  });
-};
-
-export { CreateRouteUtil, createRouteUtil2 };
+export { CreateRouteUtil };

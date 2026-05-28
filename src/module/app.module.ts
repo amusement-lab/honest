@@ -6,7 +6,16 @@ import common from './common/common.controller.ts'
 import note from './note/note.controller.ts'
 import user from './user/user.controller.ts'
 
-const app = new OpenAPIHono()
+const app = new OpenAPIHono({
+  defaultHook: (result, c) => {
+    if (!result.success) {
+      return c.json(
+        { message: result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ') },
+        400
+      )
+    }
+  },
+})
 
 app.doc('/doc', {
   openapi: '3.0.0',

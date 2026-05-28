@@ -2,6 +2,9 @@
   "name": "hono-template",
   "type": "module",
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:setup": "DATABASE_URL=$(grep DATABASE_URL_TEST .env | cut -d'=' -f2-) npx drizzle-kit push",
     "dev": "tsx watch src/index.ts",
     "ncu": "ncu"
   },
@@ -21,6 +24,7 @@
     "drizzle-kit": "^0.31.4",
     "npm-check-updates": "^18.0.3",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.7"
   }
 }
