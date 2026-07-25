@@ -1,5 +1,33 @@
 # History
 
+## 2026-07-25 — Automated test DB setup via vitest globalSetup
+
+### Context & Motivation
+
+Running `pnpm test` required a manual pre-step (`pnpm test:setup`) to push the Drizzle schema to the test database. If you forgot this step, tests would fail with missing-table errors. The `test:setup` script also used a fragile `grep | cut` shell pipeline to extract `DATABASE_URL_TEST` from `.env`.
+
+### Solution
+
+Replaced the manual script with a vitest `globalSetup` file that runs `drizzle-kit push` targeting the test database automatically before any test files execute. Uses `dotenv`-loaded `process.env.DATABASE_URL_TEST` instead of fragile shell-based `.env` parsing. The drizzle-kit CLI is invoked via `execSync` because `drizzle-kit/api`'s ESM bundle contains dynamic `require()` calls that crash in ESM environments (known upstream bug).
+
+### Files Changed
+
+#### `src/db/vitest-global-setup.ts` (NEW)
+- Exports `setup()` — loads `dotenv`, runs `drizzle-kit push` with `DATABASE_URL` overridden to `DATABASE_URL_TEST`
+- Source of truth for the DB URL is `dotenv`, not a `grep | cut` shell pipeline
+
+#### `vitest.config.ts`
+- Added `globalSetup: ['./src/db/vitest-global-setup.ts']`
+- Removed dead `DATABASE_URL` env line (always resolved to `''` since dotenv hadn't loaded yet)
+
+#### `package.json`
+- Removed `test:setup` script — no longer needed (setup is now automatic)
+
+#### `HISTORY.md` (THIS FILE)
+- Added this entry
+
+---
+
 ## 2026-05-27 — OpenAPI & Architecture Overhaul
 
 ### Context & Motivation

@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server'
 
-import app from './module/app.module.ts'
+import app from './modules/app.module.ts'
 
 serve({
   fetch: app.fetch,

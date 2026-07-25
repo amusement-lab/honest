@@ -8,7 +8,7 @@ CREATE TABLE "notes" (
 	"price" numeric NOT NULL,
 	"category" varchar NOT NULL,
 	"total_price" numeric NOT NULL,
-	"status" varchar DEFAULT '' NOT NULL
+	"status" varchar DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
