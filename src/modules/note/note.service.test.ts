@@ -27,7 +27,7 @@ describe('NoteService', () => {
 
     expect(note).toHaveProperty('id')
     expect(note.vendor).toBe('Test Vendor')
-    expect(note.status).toBe('active')
+    expect(note.status).toBe('pending')
     expect(typeof note.amount).toBe('number')
     expect(typeof note.price).toBe('number')
     expect(typeof note.totalPrice).toBe('number')

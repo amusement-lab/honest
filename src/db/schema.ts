@@ -1,15 +1,15 @@
-import { pgTable, uuid, date, varchar, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, date, varchar, integer } from 'drizzle-orm/pg-core';
 
 export const notes = pgTable('notes', {
   id: uuid('id').primaryKey().defaultRandom(),
   date: date('date').notNull(),
   vendor: varchar('vendor').notNull(),
   name: varchar('name').notNull(),
-  amount: numeric('amount').notNull(),
+  amount: integer('amount').notNull(),
   unit: varchar('unit').notNull(),
-  price: numeric('price').notNull(),
+  price: integer('price').notNull(),
   category: varchar('category').notNull(),
-  totalPrice: numeric('total_price').notNull(),
+  totalPrice: integer('total_price').notNull(),
   status: varchar('status').notNull().default('pending'),
 });
 
