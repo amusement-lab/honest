@@ -73,25 +73,47 @@ if (updatedUser.password !== undefined)
 
 ---
 
-### #6 — Don't leak error details to client
+### ~~#6 — Don't leak error details to client~~
 
-**File:** `src/modules/app.module.ts:38-41`
+**File:** `src/modules/app.module.ts:33-44`
 
 ```ts
 // Before:
-if (err instanceof Error) {
-  console.error(err.cause);
-  return c.json({ message: err.message }, 500);
-}
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return c.json({ message: err.message }, err.status)
+  }
+
+  if (err instanceof Error) {
+    console.error(err.cause)
+    return c.json({ message: err.message }, 500)
+  }
+
+  return c.json({ message: 'Internal Server Error' }, 500)
+})
 
 // After:
-if (err instanceof Error) {
-  console.error(err);
+app.onError((err, c) => {
+  console.error(JSON.stringify({
+    error: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
+    method: c.req.method,
+    url: c.req.url,
+  }));
+
+  if (err instanceof HTTPException) {
+    return c.json({ message: err.message }, err.status);
+  }
+
   return c.json({ message: "Internal Server Error" }, 500);
-}
+});
 ```
 
-Note: `console.error(err)` logs the full error (including stack trace) server-side while returning a generic message to the client.
+- [x] Single structured log for every error — no silent failures or duplicated `console.error` calls.
+- [x] `JSON.stringify` — readable in both Node.js and Cloudflare Workers (`wrangler tail` / dashboard).
+- [x] `err.message` + `err.stack` replaces `err.cause` (often `undefined`).
+- [x] `err.message` no longer leaked to client — generic `"Internal Server Error"` on unexpected failures.
+- [x] `c.req.method` + `c.req.url` — request context to trace which endpoint failed.
 
 ---
 
