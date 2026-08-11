@@ -42,6 +42,22 @@ app.onError((err, c) => {
     return c.json({ message: err.message }, err.status);
   }
 
+  /* Future: Zod validation errors
+  if (err instanceof ZodError) {
+    return c.json({
+      message: err.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", "),
+    }, 400);
+  }
+  */
+
+  /* Future: Drizzle/Postgres constraint violations
+  if (err instanceof PostgresError) {
+    if (err.code === "23505") return c.json({ message: "Resource already exists" }, 409);
+    if (err.code === "23503") return c.json({ message: "Referenced resource not found" }, 400);
+    return c.json({ message: "Database error" }, 500);
+  }
+  */
+
   return c.json({ message: "Internal Server Error" }, 500);
 })
 

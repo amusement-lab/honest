@@ -12,7 +12,7 @@ Fixes for 11 issues identified in `src/modules/` review.
 
 | File                                      | Issues              |
 | ----------------------------------------- | ------------------- |
-| `src/modules/app.module.ts`               | #6                  |
+| `src/modules/app.module.ts`               | ~~#6~~              |
 | `src/modules/common/common.controller.ts` | #11                 |
 | `src/modules/note/note.entity.ts`         | #1                  |
 | `src/modules/note/note.service.ts`        | ~~#1, #7, #8~~, #10 |
@@ -75,45 +75,63 @@ if (updatedUser.password !== undefined)
 
 ### ~~#6 — Don't leak error details to client~~
 
-**File:** `src/modules/app.module.ts:33-44`
+**File:** `src/modules/app.module.ts:33-59`
 
 ```ts
 // Before:
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    return c.json({ message: err.message }, err.status)
+    return c.json({ message: err.message }, err.status);
   }
 
   if (err instanceof Error) {
-    console.error(err.cause)
-    return c.json({ message: err.message }, 500)
+    console.error(err.cause);
+    return c.json({ message: err.message }, 500);
   }
 
-  return c.json({ message: 'Internal Server Error' }, 500)
-})
+  return c.json({ message: "Internal Server Error" }, 500);
+});
 
 // After:
 app.onError((err, c) => {
-  console.error(JSON.stringify({
-    error: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
-    method: c.req.method,
-    url: c.req.url,
-  }));
+  console.error(
+    JSON.stringify({
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      method: c.req.method,
+      url: c.req.url,
+    }),
+  );
 
   if (err instanceof HTTPException) {
     return c.json({ message: err.message }, err.status);
   }
 
+  /* Future: Zod validation errors
+  if (err instanceof ZodError) {
+    return c.json({
+      message: err.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", "),
+    }, 400);
+  }
+  */
+
+  /* Future: Drizzle/Postgres constraint violations
+  if (err instanceof PostgresError) {
+    if (err.code === "23505") return c.json({ message: "Resource already exists" }, 409);
+    if (err.code === "23503") return c.json({ message: "Referenced resource not found" }, 400);
+    return c.json({ message: "Database error" }, 500);
+  }
+  */
+
   return c.json({ message: "Internal Server Error" }, 500);
 });
 ```
 
-- [x] Single structured log for every error — no silent failures or duplicated `console.error` calls.
-- [x] `JSON.stringify` — readable in both Node.js and Cloudflare Workers (`wrangler tail` / dashboard).
+- [x] Single structured `JSON.stringify` log — works on Node.js and Cloudflare Workers.
+- [x] Each branch customizes its own client message — `HTTPException` returns its message, fallback returns generic `"Internal Server Error"`.
+- [x] Comment stubs for future ZodError / PostgresError handlers with per-error-code messages.
 - [x] `err.message` + `err.stack` replaces `err.cause` (often `undefined`).
-- [x] `err.message` no longer leaked to client — generic `"Internal Server Error"` on unexpected failures.
-- [x] `c.req.method` + `c.req.url` — request context to trace which endpoint failed.
+- [x] `c.req.method` + `c.req.url` — request context for tracing.
 
 ---
 
