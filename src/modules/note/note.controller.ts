@@ -2,7 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { z } from '@hono/zod-openapi'
 
 import { NoteService } from './note.service.ts'
-import { NoteSchema, NotesSchema, NoteCreateSchema, NoteUpdateSchema, type Note, type NoteCreate, type NoteUpdate } from './note.entity.ts'
+import { NoteSchema, NotesSchema, NoteCreateSchema, NoteUpdateSchema, type Note } from './note.entity.ts'
 import { CreateRouteUtil } from '../../utils/route.util.ts'
 
 const app = new OpenAPIHono()
@@ -36,7 +36,7 @@ app.openapi(
     status: 201,
   }),
   async (c) => {
-    const body: NoteCreate = NoteCreateSchema.parse(await c.req.json())
+    const body = c.req.valid('json')
     const note: Note = await NoteService.createNote(body)
     return c.json(note, 201)
   })
@@ -64,7 +64,7 @@ app.openapi(
   }),
   async (c) => {
     const id = c.req.param('id')!
-    const body: NoteUpdate = NoteUpdateSchema.parse(await c.req.json())
+    const body = c.req.valid('json')
     const note: Note = await NoteService.updateNote(id, body)
     return c.json(note)
   })

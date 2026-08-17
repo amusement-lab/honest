@@ -2,7 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { z } from '@hono/zod-openapi'
 
 import { UserService } from './user.service.ts'
-import { UserSchema, UsersSchema, UserCreateSchema, UserUpdateSchema, type User, type UserCreate, type UserUpdate } from './user.entity.ts'
+import { UserSchema, UsersSchema, UserCreateSchema, UserUpdateSchema, type User } from './user.entity.ts'
 import { CreateRouteUtil } from '../../utils/route.util.ts'
 
 const app = new OpenAPIHono()
@@ -36,7 +36,7 @@ app.openapi(
     status: 201,
   }),
   async (c) => {
-    const body: UserCreate = UserCreateSchema.parse(await c.req.json())
+    const body = c.req.valid('json')
     const user: User = await UserService.createUser(body)
     return c.json(user, 201)
   })
@@ -64,7 +64,7 @@ app.openapi(
   }),
   async (c) => {
     const id = c.req.param('id')!
-    const body: UserUpdate = UserUpdateSchema.parse(await c.req.json())
+    const body = c.req.valid('json')
     const user: User = await UserService.updateUser(id, body)
     return c.json(user)
   })

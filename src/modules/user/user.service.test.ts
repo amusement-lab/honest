@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { UserService } from './user.service'
+import { UserService } from './user.service.ts'
 import { db } from '../../db/index.ts'
 import { userTable } from '../../db/schema.ts'
 import { HTTPException } from 'hono/http-exception'

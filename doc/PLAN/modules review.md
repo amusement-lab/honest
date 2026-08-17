@@ -13,13 +13,14 @@ Fixes for 11 issues identified in `src/modules/` review.
 | File                                      | Issues              |
 | ----------------------------------------- | ------------------- |
 | `src/modules/app.module.ts`               | ~~#6~~              |
+| `src/utils/route.util.ts`                 | ~~#2~~              |
 | `src/modules/common/common.controller.ts` | #11                 |
 | `src/modules/note/note.entity.ts`         | #1                  |
 | `src/modules/note/note.service.ts`        | ~~#1, #7, #8~~, #10 |
-| `src/modules/note/note.controller.ts`     | #2, #3, #9, #10     |
+| `src/modules/note/note.controller.ts`     | ~~#2~~, #3, #9, #10 |
 | `src/modules/note/note.service.test.ts`   | ~~#1~~, #4, #10     |
 | `src/modules/user/user.service.ts`        | #5, #10             |
-| `src/modules/user/user.controller.ts`     | #2, #3, #9, #10     |
+| `src/modules/user/user.controller.ts`     | ~~#2~~, #3, #9, #10 |
 | `src/modules/user/user.service.test.ts`   | #10                 |
 
 ---
@@ -149,11 +150,16 @@ app.onError((err, c) => {
 
 ---
 
-### #2 — Eliminate double body parsing
+### ~~#2 — Eliminate double body parsing~~
 
-**Files:** `src/modules/note/note.controller.ts:39`, `src/modules/user/user.controller.ts:39`
+**Files:** `src/modules/note/note.controller.ts`, `src/modules/user/user.controller.ts`, `src/utils/route.util.ts`
 
-Applies to both POST and PUT routes in both controllers (4 occurrences total).
+**Changes (completed):**
+
+- [x] **`src/utils/route.util.ts`** — `CreateRouteUtil.createRouteUtil` made generic (`TParamsSchema`, `TQuerySchema`, `THeadersSchema`, `TBodySchema`) so the exact schema type flows into `createRoute`. The type-erasing `Record<string, unknown>` accumulator was replaced with a single `request` object literal (conditional spreads), asserted to a `RouteRequest<...>` type whose conditional `body` keeps `body` **required** when a schema is provided — this is what lets `c.req.valid("json")` infer correctly. Detailed explanatory comments added.
+- [x] **`note.controller.ts` / `user.controller.ts`** — POST and PUT handlers replaced `Schema.parse(await c.req.json())` with `c.req.valid("json")` (4 occurrences); unused `type NoteCreate`/`NoteUpdate`/`UserCreate`/`UserUpdate` imports removed.
+
+**Note:** invalid bodies now produce zod-openapi's automatic structured 400 response instead of a thrown `ZodError` → 500.
 
 ```ts
 // Before:
@@ -172,6 +178,8 @@ const note: Note = await NoteService.createNote(body);
 **Files:** `src/modules/note/note.controller.ts:52,66,80`, `src/modules/user/user.controller.ts:52,66,80`
 
 3 occurrences per controller (6 total).
+
+> **Note:** the generic `route.util.ts` fix from #2 also gives `c.req.valid("param")` full type inference (the `paramsSchema` generic now flows into `createRoute`), so this issue only needs the controller handlers changed — no further util changes.
 
 ```ts
 // Before:
@@ -270,8 +278,8 @@ So the root route appears in OpenAPI docs consistently with the other controller
 | 1    | Install bcrypt | `package.json`                                 | —          |
 | 2    | #5             | `user.service.ts`                              | Step 1     |
 | 3    | #6             | `app.module.ts`                                | —          |
-| 4    | #2             | both controllers                               | —          |
-| 5    | #3             | both controllers                               | —          |
+| 4    | ~~#2~~         | `route.util.ts` + both controllers             | —          |
+| 5    | #3             | both controllers                               | #2 (types) |
 | 6    | #10            | services + controllers + tests (6 files)       | —          |
 | 7    | #4 + #11       | `note.service.test.ts`, `common.controller.ts` | —          |
 
