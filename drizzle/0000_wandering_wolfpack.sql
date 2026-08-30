@@ -3,11 +3,11 @@ CREATE TABLE "notes" (
 	"date" date NOT NULL,
 	"vendor" varchar NOT NULL,
 	"name" varchar NOT NULL,
-	"amount" numeric NOT NULL,
+	"amount" integer NOT NULL,
 	"unit" varchar NOT NULL,
-	"price" numeric NOT NULL,
+	"price" integer NOT NULL,
 	"category" varchar NOT NULL,
-	"total_price" numeric NOT NULL,
+	"total_price" integer NOT NULL,
 	"status" varchar DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
