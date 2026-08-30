@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 
 import { db } from '../../db/index.ts'
 import { userTable } from '../../db/schema.ts'
+import { hashPassword } from '../../utils/hash.util.ts'
 import type { User, UserCreate, UserUpdate } from './user.entity.ts'
 
 class UserService {
@@ -36,10 +37,12 @@ class UserService {
       { message: `User with email ${user.email} already exists` }
     )
 
+    const hashedPassword = await hashPassword(user.password)
+
     const result = await db.insert(userTable).values({
       username: user.username,
       email: user.email,
-      password: user.password,
+      password: hashedPassword,
     }).returning({
       id: userTable.id,
       username: userTable.username,
@@ -67,7 +70,7 @@ class UserService {
     const values: Partial<typeof userTable.$inferInsert> = {}
     if (updatedUser.username !== undefined) values.username = updatedUser.username
     if (updatedUser.email !== undefined) values.email = updatedUser.email
-    if (updatedUser.password !== undefined) values.password = updatedUser.password
+    if (updatedUser.password !== undefined) values.password = await hashPassword(updatedUser.password)
 
     const result = await db.update(userTable).set(values).where(eq(userTable.id, id)).returning({
       id: userTable.id,
