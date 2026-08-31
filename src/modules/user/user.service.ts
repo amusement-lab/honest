@@ -7,7 +7,7 @@ import { hashPassword } from '../../utils/hash.util.ts'
 import type { User, UserCreate, UserUpdate } from './user.entity.ts'
 
 class UserService {
-  static async getAllUser() {
+  static async getAllUsers() {
     return db.select({
       id: userTable.id,
       username: userTable.username,

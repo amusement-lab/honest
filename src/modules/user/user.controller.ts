@@ -23,7 +23,7 @@ app.openapi(
     responseSchema: UsersSchema,
   }),
   async (c) => {
-    const users = await UserService.getAllUser()
+    const users = await UserService.getAllUsers()
     return c.json(users)
   })
 

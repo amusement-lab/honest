@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { eq } from 'drizzle-orm'
+import { HTTPException } from 'hono/http-exception'
+import { describe, it, expect, afterAll } from 'vitest'
+
 import { NoteService } from './note.service.ts'
 import { db } from '../../db/index.ts'
 import { notes } from '../../db/schema.ts'
-import { eq } from 'drizzle-orm'
-import { HTTPException } from 'hono/http-exception'
 
 describe('NoteService', () => {
   let createdId: string
@@ -36,7 +37,7 @@ describe('NoteService', () => {
   })
 
   it('should get all notes', async () => {
-    const allNotes = await NoteService.getAllNote()
+    const allNotes = await NoteService.getAllNotes()
     expect(allNotes.length).toBeGreaterThan(0)
     expect(allNotes[0]).toHaveProperty('id')
     expect(typeof allNotes[0].status).toBe('string')

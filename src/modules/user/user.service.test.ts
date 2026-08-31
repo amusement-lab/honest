@@ -1,9 +1,10 @@
-import { describe, it, expect, afterAll } from 'vitest'
 import { eq } from 'drizzle-orm'
+import { HTTPException } from 'hono/http-exception'
+import { describe, it, expect, afterAll } from 'vitest'
+
 import { UserService } from './user.service.ts'
 import { db } from '../../db/index.ts'
 import { userTable } from '../../db/schema.ts'
-import { HTTPException } from 'hono/http-exception'
 
 describe('UserService', () => {
   let createdId: string
@@ -36,7 +37,7 @@ describe('UserService', () => {
   })
 
   it('should get all users', async () => {
-    const allUsers = await UserService.getAllUser()
+    const allUsers = await UserService.getAllUsers()
     expect(allUsers.length).toBeGreaterThan(0)
     expect(allUsers[0]).toHaveProperty('id')
     expect(allUsers[0]).not.toHaveProperty('password')

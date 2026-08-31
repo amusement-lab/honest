@@ -16,12 +16,12 @@ Fixes for 11 issues identified in `src/modules/` review.
 | `src/utils/route.util.ts`                 | ~~#2, #3~~          |
 | `src/modules/common/common.controller.ts` | #11                 |
 | `src/modules/note/note.entity.ts`         | ~~#1~~              |
-| `src/modules/note/note.service.ts`        | ~~#1, #7, #8~~, #10 |
-| `src/modules/note/note.controller.ts`     | ~~#2, #3~~, #9, #10 |
-| `src/modules/note/note.service.test.ts`   | ~~#1~~, #4, #10     |
-| `src/modules/user/user.service.ts`        | ~~#5~~, #10         |
-| `src/modules/user/user.controller.ts`     | ~~#2, #3~~, #9, #10 |
-| `src/modules/user/user.service.test.ts`   | #10                 |
+| `src/modules/note/note.service.ts`        | ~~#1, #7, #8, #10~~ |
+| `src/modules/note/note.controller.ts`     | ~~#2, #3, #9, #10~~ |
+| `src/modules/note/note.service.test.ts`   | ~~#1, #4, #10~~     |
+| `src/modules/user/user.service.ts`        | ~~#5, #10~~         |
+| `src/modules/user/user.controller.ts`     | ~~#2, #3, #9, #10~~ |
+| `src/modules/user/user.service.test.ts`   | ~~#10~~             |
 
 ---
 
@@ -174,9 +174,11 @@ const { id } = c.req.valid("param");
 
 ## Phase 3 — Polish
 
-### #10 — Pluralize method names
+### ~~#10 — Pluralize method names~~
 
 **Files:** `src/modules/note/note.service.ts`, `src/modules/note/note.controller.ts`, `src/modules/note/note.service.test.ts`, `src/modules/user/user.service.ts`, `src/modules/user/user.controller.ts`, `src/modules/user/user.service.test.ts`
+
+- [x] Renamed `getAllNote()` &rarr; `getAllNotes()` and `getAllUser()` &rarr; `getAllUsers()` across all services, controllers, and test files.
 
 | File                          | Before                      | After                        |
 | ----------------------------- | --------------------------- | ---------------------------- |
@@ -189,11 +191,11 @@ const { id } = c.req.valid("param");
 
 ---
 
-### #9 — Controller duplication (review only — no action)
+### ~~#9 — Controller duplication (review only — no action)~~
 
 Both controllers are 85 lines of near-identical CRUD boilerplate.
 
-**Decision:** Keep as-is for now. At 85 lines the duplication is tolerable and the explicitness is valuable. Revisit if a third module is added.
+- [x] **Decision (Confirmed):** Keep as-is for now. At 85 lines the duplication is tolerable and the explicitness is valuable for future feature flexibility without premature abstraction. Revisit if a third module is added.
 
 If extraction is desired later:
 
@@ -220,9 +222,11 @@ export function defineCrudRoutes<T>(
 
 ---
 
-### #4 — Remove unused import
+### ~~#4 — Remove unused import~~
 
 **File:** `src/modules/note/note.service.test.ts:1`
+
+- [x] Removed unused `beforeAll` from vitest import.
 
 ```ts
 // Before:
@@ -261,7 +265,7 @@ So the root route appears in OpenAPI docs consistently with the other controller
 | 3    | ~~#6~~               | `app.module.ts`                                | —          |
 | 4    | ~~#2~~               | `route.util.ts` + both controllers             | —          |
 | 5    | ~~#3~~               | both controllers + `route.util.ts`             | #2 (types) |
-| 6    | #10                  | services + controllers + tests (6 files)       | —          |
-| 7    | #4 + #11             | `note.service.test.ts`, `common.controller.ts` | —          |
+| 6    | ~~#10~~              | services + controllers + tests (6 files)       | —          |
+| 7    | ~~#4~~ + #11         | `note.service.test.ts`, `common.controller.ts` | —          |
 
-~~#1, #2, #3, #5, #6, #7, #8~~ completed. Remaining steps: #10, #4, #11.
+~~#1, #2, #3, #4, #5, #6, #7, #8, #9, #10~~ completed. Remaining step: #11.

@@ -6,7 +6,7 @@ import { notes } from '../../db/schema.ts'
 import type { NoteCreate, NoteUpdate } from './note.entity.ts'
 
 class NoteService {
-  static async getAllNote() {
+  static async getAllNotes() {
     return await db.select().from(notes)
   }
 

@@ -23,7 +23,7 @@ app.openapi(
     responseSchema: NotesSchema,
   }),
   async (c) => {
-    const notes = await NoteService.getAllNote()
+    const notes = await NoteService.getAllNotes()
     return c.json(notes)
   })
 
