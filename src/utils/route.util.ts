@@ -5,7 +5,7 @@ export const ErrorResponseSchema = z.object({
 }).openapi("ErrorResponse");
 
 export const IdParamSchema = z.object({
-  id: z.string().uuid().openapi({
+  id: z.uuid().openapi({
     param: { name: "id", in: "path" },
     example: "550e8400-e29b-41d4-a716-446655440000",
   }),

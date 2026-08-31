@@ -1,20 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { z } from '@hono/zod-openapi'
 
 import { UserService } from './user.service.ts'
 import { UserSchema, UsersSchema, UserCreateSchema, UserUpdateSchema, type User } from './user.entity.ts'
-import { CreateRouteUtil } from '../../utils/route.util.ts'
+import { CreateRouteUtil, IdParamSchema } from '../../utils/route.util.ts'
 
 const app = new OpenAPIHono()
 
 const userRoute = new CreateRouteUtil(['User'])
-
-const IdParamSchema = z.object({
-  id: z.string().uuid().openapi({
-    param: { name: 'id', in: 'path' },
-    example: '550e8400-e29b-41d4-a716-446655440000',
-  }),
-})
 
 app.openapi(
   userRoute.createRouteUtil({
