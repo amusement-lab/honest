@@ -1,183 +1,436 @@
-# Code Review & Fix Plan
-
-Review of the current codebase state (last two commits: `feat: add user service and user test`, `feat: add note service`).
+# Code Review & Refactor — Fix Plan
 
 ---
 
-## Bugs
+## Scope
 
-### 1. `createNote` returns a fake status
+Fixes for issues identified in the codebase review across security, entity schemas, controllers, service reliability, database tables, and utility scripts.
 
-**File:** `src/modules/note/note.service.ts:44,53`
+---
 
-The note is inserted with `status: 'pending'`, but the returned object hardcodes `status: 'active'`:
+## File Index
+
+| File | Issues |
+| --- | --- |
+| `src/modules/app.module.ts` | ~~#4~~ |
+| `src/utils/hash.util.ts` | ~~#2~~ |
+| `src/modules/note/note.entity.ts` | #5 |
+| `src/modules/note/note.controller.ts` | ~~#3, #6~~ |
+| `src/modules/note/note.service.ts` | ~~#1, #11~~, #8 |
+| `src/modules/note/note.service.test.ts` | ~~#1~~, #5 |
+| `src/modules/user/user.entity.ts` | #6 |
+| `src/modules/user/user.controller.ts` | ~~#3, #6~~ |
+| `src/modules/user/user.service.ts` | ~~#2~~, #7, #8, #9 |
+| `src/modules/user/user.service.test.ts` | #7 |
+| `src/db/schema.ts` | #7 |
+| `src/db/seed.ts` | #7, #10 |
+
+---
+
+## Phase 1 — Security + Bugs
+
+### ~~#1 — `createNote` returns a fake status~~
+
+**Files:** `src/modules/note/note.service.ts`, `src/modules/note/note.service.test.ts`
+
+**Root cause:** `createNote` inserted `status: 'pending'`, but the returned object hardcoded `status: 'active'`. The test on line 30 asserted `toBe('active')`, conflicting with the test name.
+
+**Changes (completed):**
+
+- [x] **`src/modules/note/note.service.ts`** — Removed hardcoded override; `createNote` returns `result[0]` directly from `returning()`.
+- [x] **`src/modules/note/note.service.test.ts`** — Fixed assertion on line 31 from `toBe('active')` to `toBe('pending')`.
+
+---
+
+### ~~#2 — Plaintext passwords~~
+
+**Files:** `src/modules/user/user.service.ts`, `src/utils/hash.util.ts`
+
+**Root cause:** Passwords were stored and updated in plaintext without cryptographic hashing.
+
+**Changes (completed):**
+
+- [x] **`src/utils/hash.util.ts`** — Implemented Scrypt password hashing via `@noble/hashes` (`hashPassword` with 16-byte salt and constant-time `verifyPassword`).
+- [x] **`src/modules/user/user.service.ts`** — `createUser` hashes password on insert with `await hashPassword(user.password)`; `updateUser` hashes password if provided in update payload.
+
+---
+
+## Phase 2 — Validation & Controllers
+
+### ~~#3 — Eliminate redundant manual parsing in controllers~~
+
+**Files:** `src/modules/note/note.controller.ts`, `src/modules/user/user.controller.ts`
+
+**Root cause:** Handlers called `Schema.parse(await c.req.json())`, duplicating what `@hono/zod-openapi` already performs via `requestSchema`.
+
+**Changes (completed):**
+
+- [x] **`src/modules/note/note.controller.ts`** — Switched POST and PUT handlers to `c.req.valid('json')` and `c.req.valid('param')`.
+- [x] **`src/modules/user/user.controller.ts`** — Switched POST and PUT handlers to `c.req.valid('json')` and `c.req.valid('param')`.
 
 ```ts
-status: 'pending',   // line 44 — what's stored
-...
-status: 'active',    // line 53 — what's returned
+// Before:
+const body = NoteCreateSchema.parse(await c.req.json());
+const note: Note = await NoteService.createNote(body);
+
+// After:
+const body = c.req.valid('json');
+const note: Note = await NoteService.createNote(body);
 ```
 
-The API response misrepresents the actual DB state. The test codifies the bug: `src/modules/note/note.service.test.ts:15` is named _"should create a note with pending status"_ but line 30 asserts `note.status === 'active'` — the name and assertion contradict each other.
-
-**Fix:** Return `r.status` in the service; fix the test assertion to `'pending'`.
-
-### 2. Plaintext passwords
-
-**Files:** `src/modules/user/user.service.ts:42,70`, `src/db/schema.ts:20`
-
-Passwords are inserted/updated as-is, with no hashing. Even for a template, baking plaintext storage in is a pattern that will get copied.
-
-**Decision:** Deferred — not implementing hashing at this time. Revisit when authentication is added.
-
 ---
 
-## Design issues
+### ~~#4 — Fix error logger `err.cause`~~
 
-### 3. `NoteCreateSchema` advertises `status`, then silently ignores it
+**File:** `src/modules/app.module.ts:33-40`
 
-**Files:** `src/modules/note/note.entity.ts:17`, `src/modules/note/note.service.ts:44`
+**Root cause:** `err.cause` was usually `undefined`, resulting in uninformative 500 logs without stack traces or context.
 
-`NoteSchema.omit({ id: true })` leaves `status` in the create schema, but `createNote` always overrides it with `'pending'`. A client can send `status: 'done'` and get silently corrected.
+**Changes (completed):**
 
-**Fix:** Omit `status` from the create schema (line 17: change `.omit({ id: true })` to `.omit({ id: true, status: true })`).
-
-### 4. Redundant manual parsing in controllers
-
-**Files:** `src/modules/note/note.controller.ts:39,67`, `src/modules/user/user.controller.ts:39,67`
-
-`Schema.parse(await c.req.json())` duplicates what `zod-openapi` already does via the route's `requestSchema`. The `defaultHook` in `app.module.ts` already returns a 400 on validation failure. The manual parse is dead code on the happy path — and if it ever _did_ throw, the `ZodError` would fall into `app.onError` and return a **500** instead of 400.
-
-**Fix:** Use `const body = c.req.valid('json')` — typed and already validated. Replace in all four POST/PUT handlers across both controllers.
-
-### 5. `console.error(err.cause)` logs nothing useful
-
-**File:** `src/modules/app.module.ts:39`
-
-`err.cause` is usually `undefined`, so 500s get logged as nothing — no stack trace, no error message.
-
-**Fix:** Change to `console.error(err)`.
-
----
-
-## Minor / cleanup
-
-- **Unused imports:**
-  - `Note` in `src/modules/note/note.service.ts:6` — imported but never used as a type annotation
-  - `User` in `src/modules/user/user.service.ts:6` — same
-  - `beforeAll` in `src/modules/note/note.service.test.ts:1` — imported but never called
-  - `userTable` in `src/db/seed.ts:4` — imported but `main()` only uses `notes`
-- **`updateUser` (`src/modules/user/user.service.ts:52`)** runs an UPDATE even when `values` is empty (`PUT /user/{id}` with `{}`) — add an early return when `values` has no keys.
-- **`updateNote` (`src/modules/note/note.service.ts:58`)** uses `Record<string, unknown>` — use `Partial<typeof notes.$inferInsert>` to restore type safety.
-- **Inconsistent zod style:** uses `z.string().uuid()` (deprecated in Zod 4) in both controllers' `IdParamSchema` and `z.string().email()` (deprecated in Zod 4) in `user.entity.ts`. The note entity already uses the Zod 4 top-level APIs (`z.uuid()`, `z.iso.date()`). Migrate all to the Zod 4 top-level forms: `z.uuid()`, `z.email()`.
-- **Email uniqueness check-then-act race (`src/modules/user/user.service.ts:33,60`):** two concurrent requests can both pass the pre-insert check; the DB unique constraint then throws → 500. Idiomatic fix: skip the pre-check, catch PG error `23505`, map to 400/409.
-- **Tests are order-dependent:** `createdId` set by the first test is consumed by later tests; the duplicate-email test depends on the first test's user existing. Works with vitest's in-file sequential execution, but brittle — accepted for now, not fixing.
-- **`src/db/seed.ts`:** `main()` is a floating promise with no `.catch()`, and the pg connection is never closed (process hangs until timeout).
-- **Naming inconsistency:** `notes` vs `userTable` exports in `src/db/schema.ts`. Rename `userTable` to `users` for consistency.
-
----
-
-## What's good (keep as-is)
-
-- Clean controller/service/entity layering, consistent across modules.
-- `CreateRouteUtil` removes OpenAPI boilerplate; standard error responses on every route.
-- Services never select/return `password`.
-- Separate test database + `docker-compose` setup; error-path tests (404/400) for both services.
-
----
-
-## Fix plan (batched execution order)
-
-### Batch 1: Status bug
-
-| #   | File                                     | Change                                                                                   |
-|-----|------------------------------------------|------------------------------------------------------------------------------------------|
-| 1.1 | `src/modules/note/note.service.ts:53`    | Replace `status: 'active'` with `status: r.status` so the API returns what the DB stores |
-| 1.2 | `src/modules/note/note.service.test.ts`  | — Change assertion on line 30 from `note.status === 'active'` to `note.status === 'pending'` |
-|     |                                          | — Update test name on line 15 (the name already says "pending", so it's now correct)     |
-
-**Verify:** `pnpm test`
-
----
-
-### Batch 2: Validation fixes (controller double-parse + schema leak)
-
-| #   | File                                          | Change                                                                                                        |
-|-----|-----------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| 2.1 | `src/modules/note/note.controller.ts:39,67`   | POST: replace `NoteCreateSchema.parse(await c.req.json())` with `const body = c.req.valid('json')`            |
-|     |                                               | PUT: replace `NoteUpdateSchema.parse(await c.req.json())` with `const body = c.req.valid('json')`             |
-| 2.2 | `src/modules/user/user.controller.ts:39,67`   | POST: replace `UserCreateSchema.parse(await c.req.json())` with `const body = c.req.valid('json')`            |
-|     |                                               | PUT: replace `UserUpdateSchema.parse(await c.req.json())` with `const body = c.req.valid('json')`             |
-| 2.3 | `src/modules/note/note.entity.ts:17`          | Change `NoteSchema.omit({ id: true })` to `NoteSchema.omit({ id: true, status: true })`                      |
-|     |                                               | This removes `status` from the create schema so clients cannot send it                                        |
-
-After batch 2, remove unused type imports from controller files:
-- `src/modules/note/note.controller.ts`: remove `NoteCreate`, `NoteUpdate` from the type-only import (no longer needed after switching to `c.req.valid`)
-- `src/modules/user/user.controller.ts`: remove `UserCreate`, `UserUpdate` from the type-only import
-
-**Verify:** `pnpm test`
-
----
-
-### Batch 3: Error handling + unused imports + empty-update guard
-
-| #   | File                                          | Change                                                                           |
-|-----|-----------------------------------------------|----------------------------------------------------------------------------------|
-| 3.1 | `src/modules/app.module.ts:39`                | Change `console.error(err.cause)` to `console.error(err)`                        |
-| 3.2 | `src/modules/note/note.service.ts:6`          | Remove `Note` from the type import (only `NoteCreate`, `NoteUpdate` are used)    |
-| 3.3 | `src/modules/user/user.service.ts:6`          | Remove `User` from the type import (only `UserCreate`, `UserUpdate` are used)    |
-| 3.4 | `src/modules/note/note.service.test.ts:1`     | Remove `beforeAll` from the vitest import                                        |
-| 3.5 | `src/db/seed.ts:4`                            | Remove `userTable` from the import (only `notes` is used)                        |
-| 3.6 | `src/modules/user/user.service.ts:76`         | Add early return before the UPDATE when `Object.keys(values).length === 0`      |
-|     |                                               | (after populating `values` from `updatedUser` fields, line ~71)                  |
-
-**Verify:** `pnpm test` + `tsc --noEmit`
-
----
-
-### Batch 4: Type safety + consistency
-
-| #   | File                                          | Change                                                                                                 |
-|-----|-----------------------------------------------|--------------------------------------------------------------------------------------------------------|
-| 4.1 | `src/modules/note/note.service.ts:58`         | Replace `Record<string, unknown>` with `Partial<typeof notes.$inferInsert>` in `updateNote`           |
-| 4.2 | `src/modules/note/note.controller.ts:21`      | Change `z.string().uuid()` to `z.uuid()` in `IdParamSchema`                                           |
-| 4.3 | `src/modules/user/user.controller.ts:21`      | Change `z.string().uuid()` to `z.uuid()` in `IdParamSchema`                                           |
-| 4.4 | `src/modules/user/user.entity.ts:10`          | Change `z.string().email()` to `z.email()` in `UserSchema`                                            |
-| 4.5 | `src/db/schema.ts:13`                         | Rename `userTable` → `users`                                                                          |
-|     | `src/modules/user/user.service.ts:5`          | Update import: `userTable` → `users`                                                                  |
-|     | `src/modules/user/user.service.test.ts:6`     | Update import: `userTable` → `users`                                                                  |
-|     | `src/db/seed.ts:4`                            | Update import: `userTable` → `users` (already touched in batch 3; apply rename here)                  |
-
-**Verify:** `pnpm test` + `tsc --noEmit`
-
----
-
-### Batch 5: Robustness (email race condition + seed script)
-
-| #   | File                                          | Change                                                                                                  |
-|-----|-----------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| 5.1 | `src/modules/user/user.service.ts:33-37`      | In `createUser`: remove the pre-insert email duplicate check (lines 33-37). Catch PG error `23505`      |
-|     |                                               | (unique violation) in the `insert` call and throw `HTTPException(400, ...)`                             |
-| 5.2 | `src/modules/user/user.service.ts:58-63`      | In `updateUser`: remove the pre-update email duplicate check (lines 58-63). Catch PG error `23505`      |
-|     |                                               | in the `update` call and throw `HTTPException(400, ...)`                                                |
-| 5.3 | `src/db/seed.ts    `                          | — Wrap `main()` call in `main().catch(console.error)`                                                   |
-|     |                                               | — Close the pg connection after `main()` completes (or use `pg` pool drain)                             |
-
-The PG error code `23505` maps to `unique_violation`. Catch it like:
+- [x] **`src/modules/app.module.ts`** — Replaced `console.error(err.cause)` with structured JSON logging (`{ error, stack, method, url }`).
 
 ```ts
-try {
-  const result = await db.insert(userTable).values({ ... }).returning(...)
+// Before:
+if (err instanceof Error) {
+  console.error(err.cause);
+  return c.json({ message: err.message }, 500);
+}
+
+// After:
+console.error(
+  JSON.stringify({
+    error: err instanceof Error ? err.message : String(err),
+    stack: err instanceof Error ? err.stack : undefined,
+    method: c.req.method,
+    url: c.req.url,
+  }),
+);
+```
+
+---
+
+### #5 — Omit `status` from `NoteCreateSchema` & update test fixture
+
+**Files:** `src/modules/note/note.entity.ts:17`, `src/modules/note/note.service.test.ts:26`
+
+**Root cause:** `NoteCreateSchema` uses `NoteSchema.omit({ id: true })`, which leaves `status` in the schema. However, `NoteService.createNote` always forces `status: 'pending'`, silently overriding any client input.
+
+**Changes:**
+
+- [ ] **`src/modules/note/note.entity.ts`** — Omit both `id` and `status` in `NoteCreateSchema`.
+- [ ] **`src/modules/note/note.service.test.ts`** — Remove `status: 'pending'` from test input to match updated `NoteCreate` type.
+
+```ts
+// src/modules/note/note.entity.ts
+// Before:
+export const NoteCreateSchema = NoteSchema.omit({ id: true }).openapi('CreateNote')
+
+// After:
+export const NoteCreateSchema = NoteSchema.omit({ id: true, status: true }).openapi('CreateNote')
+```
+
+```ts
+// src/modules/note/note.service.test.ts
+// Before:
+const note = await NoteService.createNote({
+  date: '2024-01-01',
+  vendor: 'Test Vendor',
+  name: 'Test Note',
+  amount: 10,
+  unit: 'pcs',
+  price: 1000,
+  category: 'Test',
+  totalPrice: 10000,
+  status: 'pending',
+})
+
+// After:
+const note = await NoteService.createNote({
+  date: '2024-01-01',
+  vendor: 'Test Vendor',
+  name: 'Test Note',
+  amount: 10,
+  unit: 'pcs',
+  price: 1000,
+  category: 'Test',
+  totalPrice: 10000,
+})
+```
+
+---
+
+### #6 — Standardize Zod 4 syntax (`z.uuid()`, `z.email()`)
+
+**Files:** `src/modules/user/user.entity.ts:6`, `src/utils/route.util.ts:8`, `src/modules/note/note.entity.ts:4`
+
+**Root cause:** Mixed legacy Zod syntax (`z.string().uuid()`, `z.string().email()`) with Zod 4 top-level helpers.
+
+**Changes:**
+
+- [x] **`src/utils/route.util.ts`** — Converted `IdParamSchema` to `z.uuid()`.
+- [x] **`src/modules/note/note.entity.ts`** — Uses `z.uuid()` and `z.iso.date()`.
+- [x] **`src/modules/user/user.entity.ts`** — Converted `id` to `z.uuid()`.
+- [ ] **`src/modules/user/user.entity.ts:6`** — Migrate `email` from `z.string().email()` to `z.email()`.
+
+```ts
+// src/modules/user/user.entity.ts
+// Before:
+email: z.string().email().openapi({ example: 'john@example.com' }),
+
+// After:
+email: z.email().openapi({ example: 'john@example.com' }),
+```
+
+---
+
+## Phase 3 — Service Robustness & Database
+
+### #7 — Rename `userTable` to `users` and remove unused imports
+
+**Files:** `src/db/schema.ts:16`, `src/modules/user/user.service.ts:5-7`, `src/modules/user/user.service.test.ts:7`, `src/db/seed.ts:4`
+
+**Root cause:** `src/db/schema.ts` exports `notes` (plural table name) alongside `userTable` (singular with `Table` suffix). `user.service.ts` also imports unused type `User`.
+
+**Changes:**
+
+- [ ] **`src/db/schema.ts`** — Rename export `userTable` to `users`.
+- [ ] **`src/modules/user/user.service.ts`** — Update import from `userTable` to `users`; remove unused `User` type import; replace all occurrences of `userTable` with `users`.
+- [ ] **`src/modules/user/user.service.test.ts`** — Update import from `userTable` to `users`; replace occurrences in table cleanup / queries.
+- [ ] **`src/db/seed.ts`** — Remove unused `userTable` import.
+
+```ts
+// src/db/schema.ts
+// Before:
+export const userTable = pgTable("users", { ... });
+
+// After:
+export const users = pgTable("users", { ... });
+```
+
+```ts
+// src/modules/user/user.service.ts
+// Before:
+import { userTable } from '../../db/schema.ts'
+import type { User, UserCreate, UserUpdate } from './user.entity.ts'
+
+// After:
+import { users } from '../../db/schema.ts'
+import type { UserCreate, UserUpdate } from './user.entity.ts'
+```
+
+---
+
+### #8 — Guard empty update payloads
+
+**Files:** `src/modules/note/note.service.ts:33-42`, `src/modules/user/user.service.ts:55-82`
+
+**Root cause:** If a client sends `PUT` with `{}` (allowed by `.partial()` schemas), `db.update().set({})` generates invalid SQL (`UPDATE ... SET WHERE id = ...`), triggering a database error.
+
+**Changes:**
+
+- [ ] **`src/modules/note/note.service.ts`** — Check if `updatedNote` has keys; if empty, return `await this.getNoteById(id)` directly.
+- [ ] **`src/modules/user/user.service.ts`** — Check if `values` has keys; if empty, return `await this.getUserById(id)` directly.
+
+```ts
+// src/modules/note/note.service.ts
+// Before:
+static async updateNote(id: string, updatedNote: NoteUpdate) {
+  const result = await db.update(notes).set(updatedNote).where(eq(notes.id, id)).returning()
+
+  if (result.length === 0) throw new HTTPException(
+    404,
+    { message: `Note with id ${id} is not found` }
+  )
+
   return result[0]
-} catch (err: unknown) {
-  if (err instanceof Error && 'code' in err && (err as { code: string }).code === '23505') {
-    throw new HTTPException(400, { message: `User with email ${user.email} already exists` })
+}
+
+// After:
+static async updateNote(id: string, updatedNote: NoteUpdate) {
+  if (Object.keys(updatedNote).length === 0) {
+    return await this.getNoteById(id)
   }
-  throw err
+
+  const result = await db.update(notes).set(updatedNote).where(eq(notes.id, id)).returning()
+
+  if (result.length === 0) throw new HTTPException(
+    404,
+    { message: `Note with id ${id} is not found` }
+  )
+
+  return result[0]
 }
 ```
 
-Apply the same pattern in `updateUser` for the `db.update(...)` call.
+```ts
+// src/modules/user/user.service.ts (inside updateUser)
+// After constructing values:
+if (Object.keys(values).length === 0) {
+  return await this.getUserById(id)
+}
+```
 
-**Verify:** `pnpm test` — run twice to confirm no order-dependency or flaky failures.
+---
 
+### #9 — Eliminate email uniqueness TOCTOU race (Postgres error 23505)
+
+**File:** `src/modules/user/user.service.ts:33-82`
+
+**Root cause:** Pre-insert and pre-update `SELECT` queries for email duplicates do not prevent race conditions between concurrent requests. Catching Postgres error `23505` (`unique_violation`) at the database driver level ensures atomic uniqueness enforcement and eliminates redundant `SELECT` round-trips.
+
+**Changes:**
+
+- [ ] **`src/modules/user/user.service.ts`** — In `createUser`, remove the pre-select check; catch error code `23505` on insert and throw `HTTPException(400)`.
+- [ ] **`src/modules/user/user.service.ts`** — In `updateUser`, remove the pre-select duplicate check; catch error code `23505` on update and throw `HTTPException(400)`.
+
+```ts
+// src/modules/user/user.service.ts — createUser
+// Before:
+static async createUser(user: UserCreate) {
+  const existing = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, user.email)).limit(1)
+  if (existing.length > 0) throw new HTTPException(
+    400,
+    { message: `User with email ${user.email} already exists` }
+  )
+
+  const hashedPassword = await hashPassword(user.password)
+
+  const result = await db.insert(userTable).values({
+    username: user.username,
+    email: user.email,
+    password: hashedPassword,
+  }).returning({
+    id: userTable.id,
+    username: userTable.username,
+    email: userTable.email,
+  })
+
+  return result[0]
+}
+
+// After:
+static async createUser(user: UserCreate) {
+  const hashedPassword = await hashPassword(user.password)
+
+  try {
+    const result = await db.insert(users).values({
+      username: user.username,
+      email: user.email,
+      password: hashedPassword,
+    }).returning({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+    })
+
+    return result[0]
+  } catch (err: unknown) {
+    if (err instanceof Error && 'code' in err && (err as { code: string }).code === '23505') {
+      throw new HTTPException(400, { message: `User with email ${user.email} already exists` })
+    }
+    throw err
+  }
+}
+```
+
+```ts
+// src/modules/user/user.service.ts — updateUser
+// After:
+static async updateUser(id: string, updatedUser: UserUpdate) {
+  const values: Partial<typeof users.$inferInsert> = {}
+  if (updatedUser.username !== undefined) values.username = updatedUser.username
+  if (updatedUser.email !== undefined) values.email = updatedUser.email
+  if (updatedUser.password !== undefined) values.password = await hashPassword(updatedUser.password)
+
+  if (Object.keys(values).length === 0) {
+    return await this.getUserById(id)
+  }
+
+  try {
+    const result = await db.update(users).set(values).where(eq(users.id, id)).returning({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+    })
+
+    if (result.length === 0) throw new HTTPException(
+      404,
+      { message: `User with id ${id} is not found` }
+    )
+
+    return result[0]
+  } catch (err: unknown) {
+    if (err instanceof Error && 'code' in err && (err as { code: string }).code === '23505') {
+      throw new HTTPException(400, { message: `User with email ${updatedUser.email} already exists` })
+    }
+    throw err
+  }
+}
+```
+
+---
+
+### ~~#11 — Fix type safety in `updateNote`~~
+
+**File:** `src/modules/note/note.service.ts:33`
+
+**Changes (completed):**
+
+- [x] **`src/modules/note/note.service.ts`** — `updateNote` signature accepts `updatedNote: NoteUpdate` directly without `Record<string, unknown>`.
+
+---
+
+### #10 — Seed script connection teardown
+
+**File:** `src/db/seed.ts:1-38`
+
+**Root cause:** Running `drizzle(process.env.DATABASE_URL!)` creates an internal pool that stays open after `main()` completes, hanging process exit. `main()` is also called as an unhandled promise.
+
+**Changes:**
+
+- [ ] **`src/db/seed.ts`** — Instantiate a `pg.Pool`, pass into `drizzle(pool)`, and ensure `pool.end()` is invoked in a `.finally()` block.
+
+```ts
+// src/db/seed.ts
+// Before:
+const db = drizzle(process.env.DATABASE_URL!);
+...
+main();
+
+// After:
+import { Pool } from 'pg';
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
+const db = drizzle(pool);
+
+async function main() {
+  // seed operations...
+}
+
+main()
+  .catch(console.error)
+  .finally(async () => {
+    await pool.end();
+  });
+```
+
+---
+
+## Execution Order
+
+| Step | Issue | Files | Depends on |
+| --- | --- | --- | --- |
+| 1 | ~~#2~~ | `src/modules/user/user.service.ts`, `src/utils/hash.util.ts` | — |
+| 2 | ~~#1~~ | `src/modules/note/note.service.ts`, `src/modules/note/note.service.test.ts` | — |
+| 3 | ~~#4~~ | `src/modules/app.module.ts` | — |
+| 4 | ~~#3~~ | `src/modules/note/note.controller.ts`, `src/modules/user/user.controller.ts` | — |
+| 5 | ~~#11~~ | `src/modules/note/note.service.ts` | — |
+| 6 | #5 | `src/modules/note/note.entity.ts`, `src/modules/note/note.service.test.ts` | — |
+| 7 | #6 | `src/modules/user/user.entity.ts` | — |
+| 8 | #7 | `src/db/schema.ts`, `src/modules/user/user.service.ts`, `src/modules/user/user.service.test.ts`, `src/db/seed.ts` | — |
+| 9 | #8 | `src/modules/note/note.service.ts`, `src/modules/user/user.service.ts` | #7 (table naming) |
+| 10 | #9 | `src/modules/user/user.service.ts` | #7, #8 |
+| 11 | #10 | `src/db/seed.ts` | #7 |
+
+---
