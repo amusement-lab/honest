@@ -14,7 +14,7 @@ Fixes for 11 issues identified in `src/modules/` review.
 | ----------------------------------------- | ------------------- |
 | `src/modules/app.module.ts`               | ~~#6~~              |
 | `src/utils/route.util.ts`                 | ~~#2, #3~~          |
-| `src/modules/common/common.controller.ts` | #11                 |
+| `src/modules/common/common.controller.ts` | ~~#11~~             |
 | `src/modules/note/note.entity.ts`         | ~~#1~~              |
 | `src/modules/note/note.service.ts`        | ~~#1, #7, #8, #10~~ |
 | `src/modules/note/note.controller.ts`     | ~~#2, #3, #9, #10~~ |
@@ -238,9 +238,11 @@ import { describe, it, expect, afterAll } from "vitest";
 
 ---
 
-### #11 — Use OpenAPIHono in common controller
+### ~~#11 — Use OpenAPIHono in common controller~~
 
 **File:** `src/modules/common/common.controller.ts:1,3`
+
+- [x] Converted `common.controller.ts` to `OpenAPIHono` with `CreateRouteUtil` and `WelcomeResponseSchema`, so the root route appears in OpenAPI docs consistently with other controllers.
 
 ```ts
 // Before:
@@ -251,8 +253,6 @@ const app = new Hono();
 import { OpenAPIHono } from "@hono/zod-openapi";
 const app = new OpenAPIHono();
 ```
-
-So the root route appears in OpenAPI docs consistently with the other controllers.
 
 ---
 
@@ -266,6 +266,6 @@ So the root route appears in OpenAPI docs consistently with the other controller
 | 4    | ~~#2~~               | `route.util.ts` + both controllers             | —          |
 | 5    | ~~#3~~               | both controllers + `route.util.ts`             | #2 (types) |
 | 6    | ~~#10~~              | services + controllers + tests (6 files)       | —          |
-| 7    | ~~#4~~ + #11         | `note.service.test.ts`, `common.controller.ts` | —          |
+| 7    | ~~#4, #11~~          | `note.service.test.ts`, `common.controller.ts` | —          |
 
-~~#1, #2, #3, #4, #5, #6, #7, #8, #9, #10~~ completed. Remaining step: #11.
+~~#1, #2, #3, #4, #5, #6, #7, #8, #9, #10, #11~~ completed. All 11 issues resolved.

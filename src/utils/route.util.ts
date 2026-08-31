@@ -4,6 +4,13 @@ export const ErrorResponseSchema = z.object({
   message: z.string().openapi({ example: "Error message" }),
 }).openapi("ErrorResponse");
 
+export const IdParamSchema = z.object({
+  id: z.string().uuid().openapi({
+    param: { name: "id", in: "path" },
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  }),
+});
+
 type HttpMethod = "post" | "get" | "put" | "patch" | "delete";
 
 /**
