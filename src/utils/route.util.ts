@@ -61,11 +61,10 @@ type RouteRequest<
   QuerySchema extends ZodQuerySchema | undefined,
   HeadersSchema extends ZodHeadersSchema | undefined,
   BodySchema extends z.ZodType | undefined,
-> = {
-  params?: ParamsSchema;
-  query?: QuerySchema;
-  headers?: HeadersSchema;
-} & ([BodySchema] extends [z.ZodType] ? { body: JsonBody<BodySchema> } : {});
+> = ([ParamsSchema] extends [ZodParamsSchema] ? { params: ParamsSchema } : {}) &
+  ([QuerySchema] extends [ZodQuerySchema] ? { query: QuerySchema } : {}) &
+  ([HeadersSchema] extends [ZodHeadersSchema] ? { headers: HeadersSchema } : {}) &
+  ([BodySchema] extends [z.ZodType] ? { body: JsonBody<BodySchema> } : {});
 
 class CreateRouteUtil {
   constructor(

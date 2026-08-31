@@ -49,7 +49,7 @@ app.openapi(
     responseSchema: UserSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const user: User = await UserService.getUserById(id)
     return c.json(user)
   })
@@ -63,7 +63,7 @@ app.openapi(
     responseSchema: UserSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const user: User = await UserService.updateUser(id, body)
     return c.json(user)
@@ -77,7 +77,7 @@ app.openapi(
     responseSchema: UserSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const user: User = await UserService.deleteUser(id)
     return c.json(user)
   })

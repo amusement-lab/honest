@@ -13,50 +13,28 @@ Fixes for 11 issues identified in `src/modules/` review.
 | File                                      | Issues              |
 | ----------------------------------------- | ------------------- |
 | `src/modules/app.module.ts`               | ~~#6~~              |
-| `src/utils/route.util.ts`                 | ~~#2~~              |
+| `src/utils/route.util.ts`                 | ~~#2, #3~~          |
 | `src/modules/common/common.controller.ts` | #11                 |
-| `src/modules/note/note.entity.ts`         | #1                  |
+| `src/modules/note/note.entity.ts`         | ~~#1~~              |
 | `src/modules/note/note.service.ts`        | ~~#1, #7, #8~~, #10 |
-| `src/modules/note/note.controller.ts`     | ~~#2~~, #3, #9, #10 |
+| `src/modules/note/note.controller.ts`     | ~~#2, #3~~, #9, #10 |
 | `src/modules/note/note.service.test.ts`   | ~~#1~~, #4, #10     |
-| `src/modules/user/user.service.ts`        | #5, #10             |
-| `src/modules/user/user.controller.ts`     | ~~#2~~, #3, #9, #10 |
+| `src/modules/user/user.service.ts`        | ~~#5~~, #10         |
+| `src/modules/user/user.controller.ts`     | ~~#2, #3~~, #9, #10 |
 | `src/modules/user/user.service.test.ts`   | #10                 |
 
 ---
 
 ## Phase 1 — Security + Bugs
 
-### #5 — Hash passwords
+### ~~#5 — Hash passwords~~
 
-**Files:** `src/modules/user/user.service.ts`, `package.json`
+**Files:** `src/modules/user/user.service.ts`, `src/utils/hash.util.ts`
 
-**Install:** `bcrypt` (production) + `@types/bcrypt` (dev), or `@node-rs/bcrypt` for Bun compatibility.
+**Changes (completed):**
 
-**Changes:**
-
-In `createUser` (`user.service.ts:42`):
-
-```ts
-// Before:
-password: user.password,
-
-// After:
-password: await bcrypt.hash(user.password, 10),
-```
-
-In `updateUser` (`user.service.ts:70`):
-
-```ts
-// Before:
-if (updatedUser.password !== undefined) values.password = updatedUser.password;
-
-// After:
-if (updatedUser.password !== undefined)
-  values.password = await bcrypt.hash(updatedUser.password, 10);
-```
-
-**Verification:** Existing tests still pass (tests don't verify raw password value). Consider a future test that verifies stored password is not plaintext.
+- [x] **`src/utils/hash.util.ts`** — Implemented Scrypt password hashing via `@noble/hashes` (`hashPassword` with 16-byte random salt and constant-time `verifyPassword`).
+- [x] **`src/modules/user/user.service.ts`** — `createUser` hashes password on insert with `await hashPassword(user.password)`; `updateUser` hashes password if provided in update payload.
 
 ---
 
@@ -173,13 +151,16 @@ const note: Note = await NoteService.createNote(body);
 
 ---
 
-### #3 — Replace non-null assertions on params
+### ~~#3 — Replace non-null assertions on params~~
 
-**Files:** `src/modules/note/note.controller.ts:52,66,80`, `src/modules/user/user.controller.ts:52,66,80`
+**Files:** `src/modules/note/note.controller.ts:52,66,80`, `src/modules/user/user.controller.ts:52,66,80`, `src/utils/route.util.ts`
 
 3 occurrences per controller (6 total).
 
-> **Note:** the generic `route.util.ts` fix from #2 also gives `c.req.valid("param")` full type inference (the `paramsSchema` generic now flows into `createRoute`), so this issue only needs the controller handlers changed — no further util changes.
+**Changes (completed):**
+
+- [x] **`src/utils/route.util.ts`** — Updated `RouteRequest` conditional type mapping so `params`, `query`, and `headers` are non-optional when their schemas are supplied (mirroring the `body` fix), ensuring `c.req.valid("param")` correctly infers without `undefined`.
+- [x] **`note.controller.ts` / `user.controller.ts`** — GET `/{id}`, PUT `/{id}`, and DELETE `/{id}` handlers replaced `c.req.param("id")!` with `const { id } = c.req.valid("param")`.
 
 ```ts
 // Before:
@@ -273,14 +254,14 @@ So the root route appears in OpenAPI docs consistently with the other controller
 
 ## Execution Order
 
-| Step | Issue          | Files                                          | Depends on |
-| ---- | -------------- | ---------------------------------------------- | ---------- |
-| 1    | Install bcrypt | `package.json`                                 | —          |
-| 2    | #5             | `user.service.ts`                              | Step 1     |
-| 3    | #6             | `app.module.ts`                                | —          |
-| 4    | ~~#2~~         | `route.util.ts` + both controllers             | —          |
-| 5    | #3             | both controllers                               | #2 (types) |
-| 6    | #10            | services + controllers + tests (6 files)       | —          |
-| 7    | #4 + #11       | `note.service.test.ts`, `common.controller.ts` | —          |
+| Step | Issue                | Files                                          | Depends on |
+| ---- | -------------------- | ---------------------------------------------- | ---------- |
+| 1    | ~~Install hash lib~~ | `package.json`                                 | —          |
+| 2    | ~~#5~~               | `user.service.ts`, `src/utils/hash.util.ts`    | Step 1     |
+| 3    | ~~#6~~               | `app.module.ts`                                | —          |
+| 4    | ~~#2~~               | `route.util.ts` + both controllers             | —          |
+| 5    | ~~#3~~               | both controllers + `route.util.ts`             | #2 (types) |
+| 6    | #10                  | services + controllers + tests (6 files)       | —          |
+| 7    | #4 + #11             | `note.service.test.ts`, `common.controller.ts` | —          |
 
-~~#1, #7, #8~~ completed. Steps 1, 3, 4, 5, 6, 7 are independent and can run in parallel.
+~~#1, #2, #3, #5, #6, #7, #8~~ completed. Remaining steps: #10, #4, #11.

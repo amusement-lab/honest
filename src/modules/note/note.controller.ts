@@ -49,7 +49,7 @@ app.openapi(
     responseSchema: NoteSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const note: Note = await NoteService.getNoteById(id)
     return c.json(note)
   })
@@ -63,7 +63,7 @@ app.openapi(
     responseSchema: NoteSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const note: Note = await NoteService.updateNote(id, body)
     return c.json(note)
@@ -77,7 +77,7 @@ app.openapi(
     responseSchema: NoteSchema,
   }),
   async (c) => {
-    const id = c.req.param('id')!
+    const { id } = c.req.valid('param')
     const note: Note = await NoteService.deleteNote(id)
     return c.json(note)
   })

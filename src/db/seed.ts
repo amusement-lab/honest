@@ -10,11 +10,11 @@ async function main() {
     date: '2024-01-01',
     vendor: 'Test Vendor',
     name: 'Test Note',
-    amount: '10',
+    amount: 10,
     unit: 'pcs',
-    price: '1000',
+    price: 1000,
     category: 'Test',
-    totalPrice: '10000',
+    totalPrice: 10000,
     status: 'pending',
   };
 

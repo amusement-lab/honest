@@ -8,6 +8,7 @@ This porject just a template for mimic NestJS workflow.
 This template mimics NestJS's **folder structure** and **separation of concerns** (controllers, services, entities) while staying lightweight and fully compatible with Cloudflare Workers.
 
 #### Currently Implemented
+
 - Module-based folder structure (`src/module/`)
 - Separation of concerns: controllers, services, entities
 - Auto-generated OpenAPI/Swagger docs (`/doc-ui`)
@@ -16,6 +17,7 @@ This template mimics NestJS's **folder structure** and **separation of concerns*
 - Route utility (`CreateRouteUtil`) for standardized route definitions
 
 #### Planned Enhancements
+
 - Dependency Injection / IoC container
 - Decorator-based routing (`@Get`, `@Post`, `@Controller`, `@Injectable`)
 - Guards (authentication, role-based access)
@@ -84,4 +86,4 @@ To start the PostgreSQL database, run the following command in the terminal:
 docker compose up -d
 ```
 
-Just make sure before running the command, you need to check the env
+Just make sure before running the command, you need to check the `.env` file
