@@ -1,21 +1,25 @@
-import { pgTable, uuid, date, varchar, integer } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-export const notes = pgTable('notes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  date: date('date').notNull(),
-  vendor: varchar('vendor').notNull(),
-  name: varchar('name').notNull(),
+export const notes = sqliteTable('notes', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  date: text('date').notNull(),
+  vendor: text('vendor').notNull(),
+  name: text('name').notNull(),
   amount: integer('amount').notNull(),
-  unit: varchar('unit').notNull(),
+  unit: text('unit').notNull(),
   price: integer('price').notNull(),
-  category: varchar('category').notNull(),
+  category: text('category').notNull(),
   totalPrice: integer('total_price').notNull(),
-  status: varchar('status').notNull().default('pending'),
+  status: text('status').notNull().default('pending'),
 });
 
-export const userTable = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  username: varchar("username", { length: 100 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  password: varchar("password", { length: 255 }).notNull(),
+export const userTable = sqliteTable('users', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  username: text('username', { length: 100 }).notNull(),
+  email: text('email', { length: 255 }).notNull().unique(),
+  password: text('password', { length: 255 }).notNull(),
 });

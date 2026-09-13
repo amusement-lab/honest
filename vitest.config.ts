@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
@@ -6,6 +6,7 @@ export default defineConfig({
     globalSetup: ['./src/db/vitest-global-setup.ts'],
     env: {
       VITEST: 'true',
+      DATABASE_URL_TEST: './sqlite.test.db',
     },
   },
-})
+});

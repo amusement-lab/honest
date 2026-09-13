@@ -39,17 +39,27 @@ class UserService {
 
     const hashedPassword = await hashPassword(user.password)
 
-    const result = await db.insert(userTable).values({
-      username: user.username,
-      email: user.email,
-      password: hashedPassword,
-    }).returning({
-      id: userTable.id,
-      username: userTable.username,
-      email: userTable.email,
-    })
+    try {
+      const result = await db.insert(userTable).values({
+        username: user.username,
+        email: user.email,
+        password: hashedPassword,
+      }).returning({
+        id: userTable.id,
+        username: userTable.username,
+        email: userTable.email,
+      })
 
-    return result[0]
+      return result[0]
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && err.message.includes('UNIQUE constraint failed')) ||
+        (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'SQLITE_CONSTRAINT_UNIQUE')
+      ) {
+        throw new HTTPException(400, { message: `User with email ${user.email} already exists` })
+      }
+      throw err
+    }
   }
 
   static async updateUser(id: string, updatedUser: UserUpdate) {
@@ -72,13 +82,23 @@ class UserService {
     if (updatedUser.email !== undefined) values.email = updatedUser.email
     if (updatedUser.password !== undefined) values.password = await hashPassword(updatedUser.password)
 
-    const result = await db.update(userTable).set(values).where(eq(userTable.id, id)).returning({
-      id: userTable.id,
-      username: userTable.username,
-      email: userTable.email,
-    })
+    try {
+      const result = await db.update(userTable).set(values).where(eq(userTable.id, id)).returning({
+        id: userTable.id,
+        username: userTable.username,
+        email: userTable.email,
+      })
 
-    return result[0]
+      return result[0]
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && err.message.includes('UNIQUE constraint failed')) ||
+        (typeof err === 'object' && err !== null && 'code' in err && (err as { code: string }).code === 'SQLITE_CONSTRAINT_UNIQUE')
+      ) {
+        throw new HTTPException(400, { message: `User with email ${updatedUser.email} already exists` })
+      }
+      throw err
+    }
   }
 
   static async deleteUser(id: string) {

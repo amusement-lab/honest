@@ -39,9 +39,9 @@ PostgreSQL drivers (`pg`, `@types/pg`) are no longer required. We install `bette
 
 **Changes:**
 
-- [ ] **`package.json`** — Remove `pg` from `dependencies` and `@types/pg` from `devDependencies`.
-- [ ] **`package.json`** — Add `better-sqlite3` to `dependencies` and `@types/better-sqlite3` to `devDependencies`.
-- [ ] **`package.json`** — Add database migration, push, seed, and studio scripts.
+- [x] **`package.json`** — Remove `pg` from `dependencies` and `@types/pg` from `devDependencies`.
+- [x] **`package.json`** — Add `better-sqlite3` to `dependencies` and `@types/better-sqlite3` to `devDependencies`.
+- [x] **`package.json`** — Add database migration, push, seed, and studio scripts.
 
 ```json
 // package.json
@@ -108,8 +108,8 @@ Drizzle Kit must target the `sqlite` dialect instead of `postgresql` and point i
 
 **Changes:**
 
-- [ ] **`drizzle.config.ts`** — Change `dialect` from `postgresql` to `sqlite`.
-- [ ] **`drizzle.config.ts`** — Update `dbCredentials.url` to use `process.env.DATABASE_URL ?? './sqlite.db'`.
+- [x] **`drizzle.config.ts`** — Change `dialect` from `postgresql` to `sqlite`.
+- [x] **`drizzle.config.ts`** — Update `dbCredentials.url` to use `process.env.DATABASE_URL ?? './sqlite.db'`.
 
 ```ts
 // drizzle.config.ts
@@ -151,8 +151,8 @@ PostgreSQL connection strings (`postgres://...`) and container environment varia
 
 **Changes:**
 
-- [ ] **`.env` / `.env.example`** — Remove PostgreSQL user, password, and port configurations.
-- [ ] **`.env` / `.env.example`** — Add `DATABASE_URL` and `DATABASE_URL_TEST` pointing to local SQLite files.
+- [x] **`.env` / `.env.example`** — Remove PostgreSQL user, password, and port configurations.
+- [x] **`.env` / `.env.example`** — Add `DATABASE_URL` and `DATABASE_URL_TEST` pointing to local SQLite files.
 
 ```env
 # .env.example & .env
@@ -184,7 +184,7 @@ SQLite stores data in single files alongside journal/WAL files (`.db`, `.db-jour
 
 **Changes:**
 
-- [ ] **`.gitignore`** — Add patterns for SQLite database files and temporary lock/journal files.
+- [x] **`.gitignore`** — Add patterns for SQLite database files and temporary lock/journal files.
 
 ```gitignore
 # .gitignore
@@ -214,9 +214,9 @@ PostgreSQL types (`pgTable`, `uuid`, `varchar`, `date`) must be converted to SQL
 
 **Changes:**
 
-- [ ] **`src/db/schema.ts`** — Replace `drizzle-orm/pg-core` imports with `drizzle-orm/sqlite-core`.
-- [ ] **`src/db/schema.ts`** — Convert `notes` table definition to `sqliteTable`.
-- [ ] **`src/db/schema.ts`** — Convert `userTable` definition to `sqliteTable`.
+- [x] **`src/db/schema.ts`** — Replace `drizzle-orm/pg-core` imports with `drizzle-orm/sqlite-core`.
+- [x] **`src/db/schema.ts`** — Convert `notes` table definition to `sqliteTable`.
+- [x] **`src/db/schema.ts`** — Convert `userTable` definition to `sqliteTable`.
 
 ```ts
 // src/db/schema.ts
@@ -282,9 +282,9 @@ Replace `drizzle-orm/node-postgres` with `drizzle-orm/better-sqlite3`. Instantia
 
 **Changes:**
 
-- [ ] **`src/db/index.ts`** — Remove `drizzle-orm/node-postgres` import.
-- [ ] **`src/db/index.ts`** — Import `Database` from `better-sqlite3` and `drizzle` from `drizzle-orm/better-sqlite3`.
-- [ ] **`src/db/index.ts`** — Initialize `client` with `WAL` pragma and export `db` and `client`.
+- [x] **`src/db/index.ts`** — Remove `drizzle-orm/node-postgres` import.
+- [x] **`src/db/index.ts`** — Import `Database` from `better-sqlite3` and `drizzle` from `drizzle-orm/better-sqlite3`.
+- [x] **`src/db/index.ts`** — Initialize `client` with `WAL` pragma and export `db` and `client`.
 
 ```ts
 // src/db/index.ts
@@ -336,8 +336,8 @@ export const db = drizzle(client, { schema });
 
 **Changes:**
 
-- [ ] **`src/db/seed.ts`** — Replace PostgreSQL connection with imported `db` and `client` from `src/db/index.ts`.
-- [ ] **`src/db/seed.ts`** — Ensure `client.close()` is called in `.finally()`.
+- [x] **`src/db/seed.ts`** — Replace PostgreSQL connection with imported `db` and `client` from `src/db/index.ts`.
+- [x] **`src/db/seed.ts`** — Ensure `client.close()` is called in `.finally()`.
 
 ```ts
 // src/db/seed.ts
@@ -435,7 +435,7 @@ main()
 
 **Changes:**
 
-- [ ] **`src/modules/app.module.ts`** — Replace PostgreSQL error code stubs with SQLite constraint violation checks.
+- [x] **`src/modules/app.module.ts`** — Replace PostgreSQL error code stubs with SQLite constraint violation checks.
 
 ```ts
 // src/modules/app.module.ts
@@ -482,7 +482,7 @@ if (
 
 **Changes:**
 
-- [ ] **`src/modules/user/user.service.ts`** — Ensure `createUser` and `updateUser` safely handle SQLite unique constraint violations.
+- [x] **`src/modules/user/user.service.ts`** — Ensure `createUser` and `updateUser` safely handle SQLite unique constraint violations.
 
 ```ts
 // src/modules/user/user.service.ts
@@ -514,8 +514,8 @@ try {
 
 **Changes:**
 
-- [ ] **`src/db/vitest-global-setup.ts`** — Delete existing test database file prior to `drizzle-kit push`.
-- [ ] **`src/db/vitest-global-setup.ts`** — Export `teardown()` to clean up the test database file after all test suites complete.
+- [x] **`src/db/vitest-global-setup.ts`** — Delete existing test database file prior to `drizzle-kit push`.
+- [x] **`src/db/vitest-global-setup.ts`** — Export `teardown()` to clean up the test database file after all test suites complete.
 
 ```ts
 // src/db/vitest-global-setup.ts
@@ -566,7 +566,7 @@ Ensure Vitest recognizes `teardown` from `src/db/vitest-global-setup.ts` and run
 
 **Changes:**
 
-- [ ] **`vitest.config.ts`** — Confirm `globalSetup` points to `./src/db/vitest-global-setup.ts` and file locks do not conflict.
+- [x] **`vitest.config.ts`** — Confirm `globalSetup` points to `./src/db/vitest-global-setup.ts` and file locks do not conflict.
 
 ```ts
 // vitest.config.ts
@@ -595,9 +595,9 @@ Existing SQL migrations in `drizzle/` use PostgreSQL syntax (e.g., `gen_random_u
 
 **Changes:**
 
-- [ ] **`drizzle/`** — Remove old PostgreSQL migration `0000_wandering_wolfpack.sql` and metadata in `drizzle/meta/`.
-- [ ] Run `pnpm run db:generate` to generate a fresh SQLite migration.
-- [ ] Run `pnpm run db:push` to apply schema directly to `sqlite.db`.
+- [x] **`drizzle/`** — Remove old PostgreSQL migration `0000_wandering_wolfpack.sql` and metadata in `drizzle/meta/`.
+- [x] Run `pnpm run db:generate` to generate a fresh SQLite migration.
+- [x] Run `pnpm run db:push` to apply schema directly to `sqlite.db`.
 
 ```bash
 # Clean up old Postgres migrations
@@ -618,7 +618,7 @@ pnpm run db:generate
 
 **Changes:**
 
-- [ ] **`docker-compose.yml`** — Remove or replace with a note documenting that Docker is no longer required for SQLite.
+- [x] **`docker-compose.yml`** — Remove or replace with a note documenting that Docker is no longer required for SQLite.
 
 ```yaml
 # docker-compose.yml (Optional / Deprecated)

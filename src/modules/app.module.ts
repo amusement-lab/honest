@@ -50,13 +50,26 @@ app.onError((err, c) => {
   }
   */
 
-  /* Future: Drizzle/Postgres constraint violations
-  if (err instanceof PostgresError) {
-    if (err.code === "23505") return c.json({ message: "Resource already exists" }, 409);
-    if (err.code === "23503") return c.json({ message: "Referenced resource not found" }, 400);
-    return c.json({ message: "Database error" }, 500);
+  // SQLite constraint violations (thrown by better-sqlite3)
+  if (
+    err instanceof Error &&
+    ("code" in err || err.message.includes("UNIQUE constraint failed"))
+  ) {
+    const errorWithCode = err as Error & { code?: string };
+    if (
+      errorWithCode.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+      errorWithCode.code === "SQLITE_CONSTRAINT_PRIMARYKEY" ||
+      err.message.includes("UNIQUE constraint failed")
+    ) {
+      return c.json({ message: "Resource already exists" }, 409);
+    }
+    if (
+      errorWithCode.code === "SQLITE_CONSTRAINT_FOREIGNKEY" ||
+      err.message.includes("FOREIGN KEY constraint failed")
+    ) {
+      return c.json({ message: "Referenced resource not found" }, 400);
+    }
   }
-  */
 
   return c.json({ message: "Internal Server Error" }, 500);
 })
