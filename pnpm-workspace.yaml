@@ -1,11 +1,10 @@
 allowBuilds:
-  better-sqlite3: true
+  better-sqlite3: false
   esbuild: true
 
 minimumReleaseAgeExclude:
   - hono@4.12.32
-  - '@types/node@26.1.2'
+  - "@types/node@26.1.2"
 
 onlyBuiltDependencies:
-  - better-sqlite3
   - esbuild

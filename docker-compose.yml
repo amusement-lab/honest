@@ -1,2 +1,0 @@
-# docker-compose.yml (Deprecated)
-# SQLite runs directly on disk; Docker containers for PostgreSQL are no longer needed.

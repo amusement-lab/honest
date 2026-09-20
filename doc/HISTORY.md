@@ -1,5 +1,98 @@
 # History
 
+## 2026-09-20 — Database Migration from PostgreSQL to SQLite (`better-sqlite3`)
+
+### Context & Motivation
+
+Running PostgreSQL in local development and test environments required external Docker containers (`docker-compose.yml`, `honest_pg`, `honest_pg_test`), introducing operational overhead, service dependencies, and network isolation complexities.
+
+To achieve an embedded, zero-configuration local development setup, the database layer was migrated to SQLite using `better-sqlite3` and `drizzle-orm/better-sqlite3`.
+
+### Solution
+
+1. **Database Driver & Dialect**: Replaced `pg` / `@types/pg` with `better-sqlite3` and `@types/better-sqlite3`. Configured Drizzle Kit dialect to `sqlite` targeting local file database paths (`./sqlite.db` and `./sqlite.test.db`).
+2. **Schema Migration**: Converted table definitions in `src/db/schema.ts` from `drizzle-orm/pg-core` to `drizzle-orm/sqlite-core`. Changed `uuid` primary keys to `text` with `$defaultFn(() => crypto.randomUUID())`, and replaced `date`/`varchar` with `text`.
+3. **Connection & WAL Mode**: Updated `src/db/index.ts` to instantiate `better-sqlite3` and enabled Write-Ahead Logging (`WAL`) mode for non-test environments to improve concurrent read/write performance.
+4. **Error Handling**: Updated global error handling in `src/modules/app.module.ts` and service-level constraint checks in `src/modules/user/user.service.ts` to catch SQLite constraint violations (`SQLITE_CONSTRAINT_UNIQUE`, `SQLITE_CONSTRAINT_PRIMARYKEY`, `SQLITE_CONSTRAINT_FOREIGNKEY`) and return appropriate HTTP 409 and 400 responses.
+5. **Automated Test DB Lifecycle**: Updated `src/db/vitest-global-setup.ts` to automatically unlink stale `./sqlite.test.db` instances before pushing the schema, and clean up the file on `teardown()`.
+6. **Prebuilt Binaries & Zero-Build Setup**: Upgraded `better-sqlite3` to `^13.0.3` which bundles prebuilt Node-API (N-API) binaries for all platforms across Node `>= 22`, and added `allowBuilds.better-sqlite3: false` to `pnpm-workspace.yaml`. This eliminated the need for native C++ build tools (`make`, `g++`, `python`) and allowed removing `.nvmrc`.
+7. **Decommissioned Docker & Cleaned Docs**: Deleted `docker-compose.yml`, updated `README.md` to reflect the SQLite architecture and npm scripts, and moved the completed migration plan to `doc/plan/done/migrate to sqlite.md`.
+
+### Files Changed
+
+#### `package.json` & `pnpm-lock.yaml`
+
+- Removed `pg` and `@types/pg`
+- Added `better-sqlite3` (`^13.0.3`) and `@types/better-sqlite3`
+- Added standard Drizzle scripts (`db:generate`, `db:push`, `db:migrate`, `db:seed`, `db:studio`)
+
+#### `pnpm-workspace.yaml`
+
+- Added `allowBuilds: better-sqlite3: false` to bypass unnecessary native compilation
+
+#### `drizzle.config.ts`
+
+- Changed `dialect` from `postgresql` to `sqlite`
+- Updated `dbCredentials.url` to use `process.env.DATABASE_URL ?? './sqlite.db'`
+
+#### `.env` & `.env.example`
+
+- Replaced PostgreSQL connection strings and container credentials with `DATABASE_URL=./sqlite.db` and `DATABASE_URL_TEST=./sqlite.test.db`
+
+#### `.gitignore`
+
+- Added patterns for SQLite database and journal files (`*.db`, `*.db-journal`, `*.db-wal`, `*.db-shm`)
+
+#### `src/db/schema.ts`
+
+- Migrated `notes` and `userTable` to `drizzle-orm/sqlite-core`
+- Used `text` with Web Crypto `crypto.randomUUID()` for primary keys
+
+#### `src/db/index.ts`
+
+- Replaced `drizzle-orm/node-postgres` with `better-sqlite3` and `drizzle-orm/better-sqlite3`
+- Enabled WAL journal mode in non-test mode
+- Exported both `db` and `client`
+
+#### `src/db/seed.ts`
+
+- Updated to use SQLite client with explicit `client.close()` in `.finally()`
+
+#### `src/modules/app.module.ts`
+
+- Added constraint violation handling for SQLite errors (`SQLITE_CONSTRAINT_UNIQUE`, `SQLITE_CONSTRAINT_FOREIGNKEY`, etc.)
+
+#### `src/modules/user/user.service.ts`
+
+- Updated `createUser` and `updateUser` catch blocks to detect SQLite unique constraint violations
+
+#### `src/db/vitest-global-setup.ts` & `vitest.config.ts`
+
+- Automated SQLite test database creation via `drizzle-kit push` and cleanup in `teardown()`
+
+#### `drizzle/`
+
+- Removed PostgreSQL migration `0000_wandering_wolfpack.sql`
+- Generated fresh SQLite migration `0000_dashing_anita_blake.sql` and updated snapshot journal
+
+#### `docker-compose.yml` (DELETED)
+
+- Removed deprecated PostgreSQL container specifications
+
+#### `.nvmrc` (DELETED)
+
+- Removed Node 22 pin as `better-sqlite3@13.0.3` runs natively across Node `>= 22`
+
+#### `README.md`
+
+- Updated documentation for SQLite architecture, environment setup, and npm scripts
+
+#### `doc/plan/done/migrate to sqlite.md` (MOVED)
+
+- Moved completed migration plan to `doc/plan/done/` and marked all tasks as completed
+
+---
+
 ## 2026-08-31 — Route Utility Generics, Type Safety & Module Standardization
 
 ### Context & Motivation

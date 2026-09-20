@@ -1,4 +1,6 @@
-# Migration Plan: PostgreSQL → SQLite
+# Migration Plan: PostgreSQL → SQLite [COMPLETED]
+
+> **Status:** Completed & Fully Verified (All 21 tests passing)
 
 ---
 
@@ -10,21 +12,23 @@ Migrate the database layer from PostgreSQL (`node-postgres` / `pg`) to SQLite us
 
 ## File Index
 
-| File                               | Issues / Changes |
-| ---------------------------------- | ---------------- |
-| `package.json`                     | #1               |
-| `drizzle.config.ts`                | #2               |
-| `.env` & `.env.example`            | #3               |
-| `.gitignore`                       | #4               |
-| `src/db/schema.ts`                 | #5               |
-| `src/db/index.ts`                  | #6               |
-| `src/db/seed.ts`                   | #7               |
-| `src/modules/app.module.ts`        | #8               |
-| `src/modules/user/user.service.ts` | #9               |
-| `src/db/vitest-global-setup.ts`    | #10              |
-| `vitest.config.ts`                 | #11              |
-| `drizzle/` migrations              | #12              |
-| `docker-compose.yml`               | #13              |
+| File                               | Issues / Changes |  Status   |
+| ---------------------------------- | ---------------- | :-------: |
+| `package.json`                     | #1               | Completed |
+| `drizzle.config.ts`                | #2               | Completed |
+| `.env` & `.env.example`            | #3               | Completed |
+| `.gitignore`                       | #4               | Completed |
+| `src/db/schema.ts`                 | #5               | Completed |
+| `src/db/index.ts`                  | #6               | Completed |
+| `src/db/seed.ts`                   | #7               | Completed |
+| `src/modules/app.module.ts`        | #8               | Completed |
+| `src/modules/user/user.service.ts` | #9               | Completed |
+| `src/db/vitest-global-setup.ts`    | #10              | Completed |
+| `vitest.config.ts`                 | #11              | Completed |
+| `drizzle/` migrations              | #12              | Completed |
+| `docker-compose.yml`               | #13 (Deleted)    | Completed |
+| `pnpm-workspace.yaml`              | #14 (Build skip) | Completed |
+| `README.md`                        | #15 (Docs sync)  | Completed |
 
 ---
 
@@ -73,7 +77,7 @@ PostgreSQL drivers (`pg`, `@types/pg`) are no longer required. We install `bette
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "^1.6.1",
     "@noble/hashes": "^2.3.0",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.5",
@@ -614,33 +618,56 @@ pnpm run db:generate
 **Files:** `docker-compose.yml`
 
 **Context:**
-`docker-compose.yml` runs two PostgreSQL instances (`honest_pg`, `honest_pg_test`) and an Adminer container. Since SQLite is embedded in-process, Docker is no longer required for development or testing. The file can be removed or marked as deprecated.
+`docker-compose.yml` ran two PostgreSQL instances (`honest_pg`, `honest_pg_test`) and an Adminer container. Since SQLite is embedded in-process, Docker is no longer required for development or testing. The file has been completely removed from the repository.
 
 **Changes:**
 
-- [x] **`docker-compose.yml`** — Remove or replace with a note documenting that Docker is no longer required for SQLite.
+- [x] **`docker-compose.yml`** — Deleted completely from the project.
 
-```yaml
-# docker-compose.yml (Optional / Deprecated)
-# SQLite runs directly on disk; Docker containers for PostgreSQL are no longer needed.
-```
+---
+
+### #14 — Disable build scripts in pnpm workspace
+
+**Files:** `pnpm-workspace.yaml`
+
+**Context:**
+`better-sqlite3@13.0.3` bundles prebuilt native binaries for Node >= 22 across Linux, macOS, and Windows. Native compilation via `node-gyp` is avoided by disabling build execution in pnpm.
+
+**Changes:**
+
+- [x] **`pnpm-workspace.yaml`** — Added `allowBuilds.better-sqlite3: false`.
+
+---
+
+### #15 — Synchronize documentation
+
+**Files:** `README.md`
+
+**Context:**
+Updated project README to document SQLite setup, remove Docker references, and list available npm commands.
+
+**Changes:**
+
+- [x] **`README.md`** — Updated documentation for SQLite architecture, environment configuration, and test suites.
 
 ---
 
 ## Execution Order
 
-| Step | Task                                  | Files                                               | Depends on     |
-| ---- | ------------------------------------- | --------------------------------------------------- | -------------- |
-| 1    | #1 Update dependencies & scripts      | `package.json`                                      | —              |
-| 2    | #2 Configure Drizzle Kit dialect      | `drizzle.config.ts`                                 | Step 1         |
-| 3    | #3 Update environment variables       | `.env`, `.env.example`                              | —              |
-| 4    | #4 Update Git ignore rules            | `.gitignore`                                        | —              |
-| 5    | #5 Migrate schema to `sqlite-core`    | `src/db/schema.ts`                                  | Step 1         |
-| 6    | #6 Initialize `better-sqlite3` client | `src/db/index.ts`                                   | Step 1, Step 5 |
-| 7    | #7 Update seed script                 | `src/db/seed.ts`                                    | Step 6         |
-| 8    | #8 Update global error handling       | `src/modules/app.module.ts`                         | —              |
-| 9    | #9 Update user service constraints    | `src/modules/user/user.service.ts`                  | Step 5, Step 6 |
-| 10   | #10 & #11 Update test setup & config  | `src/db/vitest-global-setup.ts`, `vitest.config.ts` | Step 2, Step 6 |
-| 11   | #12 Generate fresh SQLite migrations  | `drizzle/*`                                         | Step 2, Step 5 |
-| 12   | #13 Decommission Docker Compose       | `docker-compose.yml`                                | —              |
-| 13   | Verify test suite                     | Run `pnpm test`                                     | All steps      |
+| Step | Task                                  | Files                                               | Status        |
+| ---- | ------------------------------------- | --------------------------------------------------- | ------------- |
+| 1    | #1 Update dependencies & scripts      | `package.json`                                      | ✅ Completed  |
+| 2    | #2 Configure Drizzle Kit dialect      | `drizzle.config.ts`                                 | ✅ Completed  |
+| 3    | #3 Update environment variables       | `.env`, `.env.example`                              | ✅ Completed  |
+| 4    | #4 Update Git ignore rules            | `.gitignore`                                        | ✅ Completed  |
+| 5    | #5 Migrate schema to `sqlite-core`    | `src/db/schema.ts`                                  | ✅ Completed  |
+| 6    | #6 Initialize `better-sqlite3` client | `src/db/index.ts`                                   | ✅ Completed  |
+| 7    | #7 Update seed script                 | `src/db/seed.ts`                                    | ✅ Completed  |
+| 8    | #8 Update global error handling       | `src/modules/app.module.ts`                         | ✅ Completed  |
+| 9    | #9 Update user service constraints    | `src/modules/user/user.service.ts`                  | ✅ Completed  |
+| 10   | #10 & #11 Update test setup & config  | `src/db/vitest-global-setup.ts`, `vitest.config.ts` | ✅ Completed  |
+| 11   | #12 Generate fresh SQLite migrations  | `drizzle/*`                                         | ✅ Completed  |
+| 12   | #13 Decommission Docker Compose       | `docker-compose.yml`                                | ✅ Completed  |
+| 13   | #14 Disable pnpm build scripts        | `pnpm-workspace.yaml`                               | ✅ Completed  |
+| 14   | #15 Synchronize documentation         | `README.md`                                         | ✅ Completed  |
+| 15   | Verify test suite & runtime           | `pnpm test`, `pnpm run db:seed`                     | ✅ 21/21 Pass |
