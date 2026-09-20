@@ -5,25 +5,30 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "tsx watch src/index.ts",
-    "ncu": "ncu"
+    "ncu": "ncu",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/swagger-ui": "^0.6.1",
-    "@hono/zod-openapi": "^1.6.1",
-    "@noble/hashes": "^2.3.0",
+    "@hono/zod-openapi": "^1.6.3",
+    "@noble/hashes": "^2.4.0",
+    "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.5",
-    "pg": "^8.23.0",
-    "zod": "4.5.2"
+    "hono": "^4.13.8",
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.4.0",
-    "@types/pg": "^8.23.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^26.6.2",
     "drizzle-kit": "^0.31.10",
     "npm-check-updates": "^23.1.0",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   }

@@ -1,20 +1,23 @@
 ### About
 
-I love NestJS and their workflow, but sadly, cloudflare cannot compatible for NestJS.
-This porject just a template for mimic NestJS workflow.
+I love NestJS and their workflow, but sadly, Cloudflare is not compatible with NestJS.
+This project is a template to mimic the NestJS workflow.
 
 ### Architecture
 
-This template mimics NestJS's **folder structure** and **separation of concerns** (controllers, services, entities) while staying lightweight and fully compatible with Cloudflare Workers.
+This template mimics NestJS's **folder structure** and **separation of concerns** (controllers, services, entities) while staying lightweight and modular.
 
 #### Currently Implemented
 
-- Module-based folder structure (`src/module/`)
+- Module-based folder structure (`src/modules/`)
 - Separation of concerns: controllers, services, entities
 - Auto-generated OpenAPI/Swagger docs (`/doc-ui`)
-- Global error handling
-- Drizzle ORM + PostgreSQL setup with Docker Compose
+- Global error handling (including SQLite constraint violations)
+- Drizzle ORM + SQLite (`better-sqlite3`)
 - Route utility (`CreateRouteUtil`) for standardized route definitions
+- User module (full CRUD with hashed passwords)
+- Note module (full CRUD)
+- Automated Vitest test suite with global SQLite setup/teardown
 
 #### Planned Enhancements
 
@@ -24,66 +27,75 @@ This template mimics NestJS's **folder structure** and **separation of concerns*
 - Interceptors (logging, response transformation)
 - Pipes (automatic Zod validation)
 - Exception filters (per-controller error handling)
-- Wire Drizzle ORM into services
-- Complete user module (full CRUD)
 
 ### Dependencies Version
 
-- `nodejs` >= `24.7.0`
-- `pnpm` >= `10.15.0`
-- `hono` >= `4.9.5`
-- `zod` >= `4.1.5`
+- `nodejs` >= `22.0.0`
+- `pnpm` >= `10.0.0`
+- `hono` >= `4.13.0`
+- `zod` >= `4.0.0`
 
-### Installation
+### Getting Started
 
-```
+#### Installation
+
+```bash
 pnpm install
-pnpm run dev
 ```
 
-### Migration Database
+#### Environment Setup
 
-This project uses `drizzle-orm` as ORM, and `drizzle-kit` for database migrations.
+Copy `.env.example` to `.env`:
 
-1. Setup your database and get the connection string (Example: `postgresql://user:password@localhost:5432/mydb`)
-
-2. Create a `.env` file in the root directory (or you can copy, paste, and rename the .env.example into .env) and add your database connection string:
-
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/mydb
+```bash
+cp .env.example .env
 ```
 
-3. Run the migration command to create the necessary tables in your database:
+Contents of `.env`:
 
-a. For genererating migration files based on schema changes:
-
-```
-pnpm drizzle-kit generate
-```
-
-b. For applying the migrations to the database:
-
-```
-pnpm drizzle-kit migrate
+```env
+DATABASE_URL=./sqlite.db
+DATABASE_URL_TEST=./sqlite.test.db
 ```
 
-4. Verify that the tables have been created in your database. You can try running the seed command to populate initial data:
+#### Database Setup
 
-```
-pnpm tsx src/db/seed.ts
-```
+This project uses `drizzle-orm` with `better-sqlite3` and `drizzle-kit` for schema management:
 
-5. Add and edit schema files in the `/src/db/schema.ts` as needed. You also can edit the seed data in `/src/db/seed.ts`.
+1. **Push schema to local SQLite database:**
 
-6. For more commands and options, refer to the Drizzle ORM documentation for PostgreSQL: https://orm.drizzle.team/docs/get-started/postgresql-new
+   ```bash
+   pnpm run db:push
+   ```
 
-### Docker Compose
+2. **(Optional) Generate migration files:**
 
-This project includes a `docker-compose.yml` file to set up a PostgreSQL database using Docker Compose.
-To start the PostgreSQL database, run the following command in the terminal:
+   ```bash
+   pnpm run db:generate
+   ```
 
-```
-docker compose up -d
-```
+3. **(Optional) Seed sample data:**
 
-Just make sure before running the command, you need to check the `.env` file
+   ```bash
+   pnpm run db:seed
+   ```
+
+4. **(Optional) Open Drizzle Studio UI:**
+   ```bash
+   pnpm run db:studio
+   ```
+
+For more options, refer to the [Drizzle ORM SQLite Documentation](https://orm.drizzle.team/docs/get-started/sqlite-new).
+
+#### Development & Testing
+
+- **Start development server:**
+  ```bash
+  pnpm run dev
+  ```
+- **Run test suite:**
+  ```bash
+  pnpm test
+  ```
+- **Interactive Swagger Documentation:**
+  Open `http://localhost:3000/doc-ui` in your browser.

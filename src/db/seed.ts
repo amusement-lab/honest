@@ -1,9 +1,7 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
-import { notes, userTable } from './schema.ts';
-
-const db = drizzle(process.env.DATABASE_URL!);
+import { db, client } from './index.ts';
+import { notes } from './schema.ts';
 
 async function main() {
   const note: typeof notes.$inferInsert = {
@@ -19,19 +17,25 @@ async function main() {
   };
 
   await db.insert(notes).values(note);
-  console.log('New note created!')
+  console.log('New note created!');
 
   const allNotes = await db.select().from(notes);
-  console.log('Getting all notes from the database: ', allNotes)
+  console.log('Getting all notes from the database: ', allNotes);
 
-  await db
-    .update(notes)
-    .set({ status: 'done' })
-    .where(eq(notes.id, allNotes[0].id!));
-  console.log('Note updated!')
+  if (allNotes.length > 0 && allNotes[0].id) {
+    await db
+      .update(notes)
+      .set({ status: 'done' })
+      .where(eq(notes.id, allNotes[0].id));
+    console.log('Note updated!');
 
-  await db.delete(notes).where(eq(notes.id, allNotes[0].id!));
-  console.log('Note deleted!')
+    await db.delete(notes).where(eq(notes.id, allNotes[0].id));
+    console.log('Note deleted!');
+  }
 }
 
-main();
+main()
+  .catch(console.error)
+  .finally(() => {
+    client.close();
+  });
