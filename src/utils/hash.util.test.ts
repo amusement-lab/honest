@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword, verifyPassword } from '../utils/hash.util.ts'
+import { hashPassword, verifyPassword } from './hash.util.ts'
 
 describe('hash utility', () => {
   it('should hash a password and return salt:hash format', async () => {

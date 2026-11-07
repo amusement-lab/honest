@@ -1,4 +1,4 @@
-import app from '../../modules/app.module.ts';
+import app from '../modules/app.module.ts';
 
 export { app };
 

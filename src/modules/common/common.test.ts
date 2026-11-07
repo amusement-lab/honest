@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { app } from './helpers/http.ts'
+import { app } from '../../test/http.ts'
 
 describe('GET /', () => {
   it('should return the API greeting', async () => {

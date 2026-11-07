@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm'
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { db } from '../db/index.ts'
-import { notes } from '../db/schema.ts'
-import { app, jsonRequest, rawRequest, readJson } from './helpers/http.ts'
-import { resetDatabase } from './helpers/db.ts'
+import { db } from '../../db/index.ts'
+import { notes } from '../../db/schema.ts'
+import { app, jsonRequest, rawRequest, readJson } from '../../test/http.ts'
+import { resetDatabase } from '../../test/db.ts'
 
 const MISSING_ID = '550e8400-e29b-41d4-a716-446655440000'
 
