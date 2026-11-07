@@ -15,9 +15,15 @@ type HttpMethod = "post" | "get" | "put" | "patch" | "delete";
 
 /**
  * The wrapper shape zod-openapi expects for a JSON request body:
- *   { content: { "application/json": { schema: <your zod schema> } } }
+ *   { required: true, content: { "application/json": { schema: <schema> } } }
+ *
+ * `required: true` is NOT optional. Without it, zod-openapi treats the body as
+ * optional and skips validation entirely when the request has no
+ * `Content-Type` header. The handler then receives `{}` as the "validated"
+ * body, which reaches the database and fails as a 500 instead of a 400.
  */
 type JsonBody<Schema extends z.ZodType> = {
+  required: true;
   content: { "application/json": { schema: Schema } };
 };
 
@@ -159,6 +165,8 @@ class CreateRouteUtil {
         ...(option.headersSchema && { headers: option.headersSchema }),
         ...(option.requestSchema && {
           body: {
+            // Always required: see the `JsonBody` comment above for why.
+            required: true,
             content: {
               "application/json": { schema: option.requestSchema },
             },

@@ -14,7 +14,8 @@ export const NoteSchema = z.object({
 }).openapi('Note')
 
 export const NotesSchema = z.array(NoteSchema).openapi('Notes')
-export const NoteCreateSchema = NoteSchema.omit({ id: true }).openapi('CreateNote')
+// `status` is omitted because NoteService always forces it to 'pending'.
+export const NoteCreateSchema = NoteSchema.omit({ id: true, status: true }).openapi('CreateNote')
 export const NoteUpdateSchema = NoteSchema.omit({ id: true }).partial().openapi('UpdateNote')
 
 export type Note = z.infer<typeof NoteSchema>

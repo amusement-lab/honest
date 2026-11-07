@@ -4,6 +4,10 @@ import fs from 'node:fs';
 
 const testDbPath = process.env.DATABASE_URL_TEST ?? './sqlite.test.db';
 
+/**
+ * Runs once before the whole test run: recreates the test database from the
+ * Drizzle schema so every run starts from a known-empty state.
+ */
 export function setup() {
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);
@@ -15,6 +19,7 @@ export function setup() {
   });
 }
 
+/** Runs once after the whole test run: removes the throwaway database file. */
 export function teardown() {
   if (fs.existsSync(testDbPath)) {
     fs.unlinkSync(testDbPath);
