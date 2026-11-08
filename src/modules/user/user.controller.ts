@@ -16,7 +16,7 @@ app.openapi(
   }),
   async (c) => {
     const users = await UserService.getAllUsers()
-    return c.json(users)
+    return c.json(users, 200)
   })
 
 app.openapi(
@@ -43,7 +43,7 @@ app.openapi(
   async (c) => {
     const { id } = c.req.valid('param')
     const user: User = await UserService.getUserById(id)
-    return c.json(user)
+    return c.json(user, 200)
   })
 
 app.openapi(
@@ -58,7 +58,7 @@ app.openapi(
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const user: User = await UserService.updateUser(id, body)
-    return c.json(user)
+    return c.json(user, 200)
   })
 
 app.openapi(
@@ -71,7 +71,7 @@ app.openapi(
   async (c) => {
     const { id } = c.req.valid('param')
     const user: User = await UserService.deleteUser(id)
-    return c.json(user)
+    return c.json(user, 200)
   })
 
 export default app

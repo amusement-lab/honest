@@ -1,4 +1,5 @@
 import { createRoute, z, type RouteConfig } from "@hono/zod-openapi";
+import type { SuccessStatusCode } from "hono/utils/http-status";
 
 export const ErrorResponseSchema = z.object({
   message: z.string().openapi({ example: "Error message" }),
@@ -79,6 +80,44 @@ type RouteRequest<
   ([HeadersSchema] extends [ZodHeadersSchema] ? { headers: HeadersSchema } : {}) &
   ([BodySchema] extends [z.ZodType] ? { body: JsonBody<BodySchema> } : {});
 
+/**
+ * The success response entry. When a `responseSchema` is given we declare a
+ * JSON `content` block, which is what makes zod-openapi type the handler's
+ * return value as `TypedResponse<z.infer<Schema>, Status, "json">`.
+ *
+ * When no schema is given we deliberately OMIT `content` (rather than setting
+ * it to `undefined`). A present-but-undefined `content` makes the library
+ * compute `undefined extends Content ? never`, which would forbid the handler
+ * from returning anything at all.
+ */
+type SuccessResponse<ResponseSchema extends z.ZodType | undefined> =
+  ResponseSchema extends z.ZodType
+    ? {
+      content: { "application/json": { schema: ResponseSchema } };
+      description: string;
+    }
+    : { description: string };
+
+type ErrorResponse = {
+  content: { "application/json": { schema: typeof ErrorResponseSchema } };
+  description: string;
+};
+
+/**
+ * The full `responses` map. The success status is a generic literal (e.g.
+ * `201`) so the library sees the exact key and can enforce the status code the
+ * handler returns. `Status` is constrained to `SuccessStatusCode` (2xx) so it
+ * can never collide with the 400/404/500 error entries below.
+ */
+type RouteResponses<
+  Status extends SuccessStatusCode,
+  ResponseSchema extends z.ZodType | undefined,
+> = { [K in Status]: SuccessResponse<ResponseSchema> } & {
+  400: ErrorResponse;
+  404: ErrorResponse;
+  500: ErrorResponse;
+};
+
 class CreateRouteUtil {
   constructor(
     public tags: string[],
@@ -123,18 +162,20 @@ class CreateRouteUtil {
     QuerySchema extends ZodQuerySchema | undefined,
     HeadersSchema extends ZodHeadersSchema | undefined,
     BodySchema extends z.ZodType | undefined,
+    ResponseSchema extends z.ZodType | undefined,
+    Status extends SuccessStatusCode = 200,
   >(option: {
     method: HttpMethod;
     path: string;
-    responseSchema?: z.ZodType;
+    responseSchema?: ResponseSchema;
     requestSchema?: BodySchema;
     paramsSchema?: ParamsSchema;
     querySchema?: QuerySchema;
     headersSchema?: HeadersSchema;
     description?: string;
-    status?: number;
+    status?: Status;
   }) {
-    const status = option.status ?? 200;
+    const status = (option.status ?? 200) as Status;
 
     return createRoute({
       method: option.method,
@@ -180,13 +221,13 @@ class CreateRouteUtil {
       >,
       responses: {
         [status]: {
-          content: option.responseSchema
-            ? {
+          ...(option.responseSchema && {
+            content: {
               "application/json": {
                 schema: option.responseSchema,
               },
-            }
-            : undefined,
+            },
+          }),
           description: "Success",
         },
         400: {
@@ -213,7 +254,7 @@ class CreateRouteUtil {
           },
           description: "Internal Server Error",
         },
-      },
+      } as RouteResponses<Status, ResponseSchema>,
     });
   }
 }
