@@ -33,3 +33,6 @@ lerna-debug.log*
 *.db-wal
 *.db-shm
 db/data/
+
+# test artifacts
+coverage/

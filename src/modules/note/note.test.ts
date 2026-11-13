@@ -5,21 +5,12 @@ import { db } from '../../db/index.ts'
 import { notes } from '../../db/schema.ts'
 import { app, jsonRequest, rawRequest, readJson } from '../../test/http.ts'
 import { resetDatabase } from '../../test/db.ts'
+import type { Note } from './note.entity.ts'
 
 const MISSING_ID = '550e8400-e29b-41d4-a716-446655440000'
 
-type NoteBody = {
-  id: string
-  date: string
-  vendor: string
-  name: string
-  amount: number
-  unit: string
-  price: number
-  category: string
-  totalPrice: number
-  status: string
-}
+/** The `{ message }` envelope produced by `app.onError`. */
+type ErrorBody = { message: string }
 
 function notePayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -30,14 +21,14 @@ function notePayload(overrides: Record<string, unknown> = {}) {
     unit: 'pcs',
     price: 1000,
     category: 'Test',
-    totalPrice: 10000,
+    totalPrice: 10_000,
     ...overrides,
   }
 }
 
 async function createNote(overrides: Record<string, unknown> = {}) {
   const res = await jsonRequest('POST', '/note', notePayload(overrides))
-  return { res, body: await readJson<NoteBody>(res) }
+  return { res, body: await readJson<Note>(res) }
 }
 
 beforeEach(async () => {
@@ -69,7 +60,7 @@ describe('POST /note', () => {
     const res = await jsonRequest('POST', '/note', { vendor: 'Only Vendor' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('date')
+    expect((await readJson<ErrorBody>(res)).message).toContain('date')
   })
 
   it('should return 400 when amount is not positive', async () => {
@@ -104,7 +95,7 @@ describe('POST /note', () => {
     const res = await app.request('/note', { method: 'POST' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('date')
+    expect((await readJson<ErrorBody>(res)).message).toContain('date')
   })
 })
 
@@ -121,7 +112,7 @@ describe('GET /note', () => {
     await createNote({ name: 'Second Note', vendor: 'Vendor B' })
 
     const res = await jsonRequest('GET', '/note')
-    const body = await readJson<NoteBody[]>(res)
+    const body = await readJson<Note[]>(res)
 
     expect(res.status).toBe(200)
     expect(body).toHaveLength(2)
@@ -134,7 +125,7 @@ describe('GET /note/{id}', () => {
     const { body: created } = await createNote()
 
     const res = await jsonRequest('GET', `/note/${created.id}`)
-    const body = await readJson<NoteBody>(res)
+    const body = await readJson<Note>(res)
 
     expect(res.status).toBe(200)
     expect(body).toEqual(created)
@@ -142,7 +133,7 @@ describe('GET /note/{id}', () => {
 
   it('should return 404 when the note does not exist', async () => {
     const res = await jsonRequest('GET', `/note/${MISSING_ID}`)
-    const body = await readJson(res)
+    const body = await readJson<ErrorBody>(res)
 
     expect(res.status).toBe(404)
     expect(body.message).toContain(MISSING_ID)
@@ -152,7 +143,7 @@ describe('GET /note/{id}', () => {
     const res = await jsonRequest('GET', '/note/not-a-uuid')
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('id')
+    expect((await readJson<ErrorBody>(res)).message).toContain('id')
   })
 })
 
@@ -161,7 +152,7 @@ describe('PUT /note/{id}', () => {
     const { body: created } = await createNote()
 
     const res = await jsonRequest('PUT', `/note/${created.id}`, { vendor: 'Updated Vendor' })
-    const body = await readJson<NoteBody>(res)
+    const body = await readJson<Note>(res)
 
     expect(res.status).toBe(200)
     expect(body.vendor).toBe('Updated Vendor')
@@ -191,6 +182,34 @@ describe('PUT /note/{id}', () => {
 
     expect(res.status).toBe(400)
   })
+
+  it('should return 400 when the body is empty', async () => {
+    // Regression: `db.update().set({})` throws "No values to set", which used
+    // to surface as a 500 instead of a 400.
+    const { body: created } = await createNote()
+
+    const res = await jsonRequest('PUT', `/note/${created.id}`, {})
+    const body = await readJson<ErrorBody>(res)
+
+    expect(res.status).toBe(400)
+    expect(body.message).toContain('No fields to update')
+  })
+
+  it('should return 400 for an empty body even when the note does not exist', async () => {
+    const res = await jsonRequest('PUT', `/note/${MISSING_ID}`, {})
+
+    expect(res.status).toBe(400)
+    expect((await readJson<ErrorBody>(res)).message).toContain('No fields to update')
+  })
+
+  it('should leave the row unchanged after an empty-body update', async () => {
+    const { body: created } = await createNote()
+
+    await jsonRequest('PUT', `/note/${created.id}`, {})
+
+    const [row] = await db.select().from(notes).where(eq(notes.id, created.id))
+    expect(row).toEqual(created)
+  })
 })
 
 describe('DELETE /note/{id}', () => {
@@ -198,7 +217,7 @@ describe('DELETE /note/{id}', () => {
     const { body: created } = await createNote()
 
     const res = await jsonRequest('DELETE', `/note/${created.id}`)
-    const body = await readJson<NoteBody>(res)
+    const body = await readJson<Note>(res)
 
     expect(res.status).toBe(200)
     expect(body.id).toBe(created.id)

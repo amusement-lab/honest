@@ -1,33 +1,64 @@
 import 'dotenv/config';
-import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
-const testDbPath = process.env.DATABASE_URL_TEST ?? './db/data/sqlite.test.db';
+const DEFAULT_DEV_DB_PATH = './db/data/sqlite.db';
+const testDbPath = process.env.DATABASE_URL_TEST || './db/data/sqlite.test.db';
 
-/**
- * Runs once before the whole test run: recreates the test database from the
- * Drizzle schema so every run starts from a known-empty state.
- */
-export function setup() {
-  fs.mkdirSync(path.dirname(testDbPath), { recursive: true });
+/** Set only after setup() finishes, so a failed setup never deletes files. */
+let setupSucceeded = false;
 
-  if (fs.existsSync(testDbPath)) {
-    fs.unlinkSync(testDbPath);
+/** Refuses to run destructive test setup against the development database. */
+function assertNotDevDatabase() {
+  const devDbPath = process.env.DATABASE_URL || DEFAULT_DEV_DB_PATH;
+  if (path.resolve(testDbPath) === path.resolve(devDbPath)) {
+    throw new Error(
+      `Refusing to run destructive test setup against the development database: ${testDbPath}`,
+    );
   }
-
-  execSync('npx drizzle-kit push', {
-    env: { ...process.env, DATABASE_URL: testDbPath },
-    stdio: 'inherit',
-  });
 }
 
-/** Runs once after the whole test run: removes the throwaway database file. */
-export function teardown() {
-  for (const suffix of ['', '-wal', '-shm']) {
-    const file = `${testDbPath}${suffix}`;
-    if (fs.existsSync(file)) {
-      fs.unlinkSync(file);
-    }
+/**
+ * Removes the test database and any journal file left by an interrupted run.
+ * The guard lives here so every caller is protected, including teardown.
+ */
+function removeDatabaseFiles() {
+  assertNotDevDatabase();
+  for (const suffix of ['', '-journal', '-wal', '-shm']) {
+    fs.rmSync(`${testDbPath}${suffix}`, { force: true });
   }
+}
+
+/**
+ * Runs once before the test run: recreates the test database by applying the
+ * migrations in `drizzle/`, so the same SQL that production runs is exercised.
+ */
+export function setup() {
+  setupSucceeded = false;
+
+  // Deletes the old file before any test worker starts; the guard lives inside.
+  removeDatabaseFiles();
+
+  // `db/data/` is gitignored, so it does not exist on a fresh clone.
+  fs.mkdirSync(path.dirname(testDbPath), { recursive: true });
+
+  // Close the handle so teardown can delete the file on Windows.
+  const client = new Database(testDbPath);
+  try {
+    migrate(drizzle(client), { migrationsFolder: './drizzle' });
+  } finally {
+    client.close();
+  }
+
+  setupSucceeded = true;
+}
+
+/** Runs once after the test run: deletes the throwaway database. */
+export function teardown() {
+  // Vitest still calls teardown when setup threw (for example, when the guard
+  // above refused to run). Never delete anything in that case.
+  if (setupSucceeded) removeDatabaseFiles();
 }

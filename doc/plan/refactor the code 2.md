@@ -9,7 +9,7 @@
 | #1  | Omit `status` from `NoteCreateSchema`     | ✅ Done    |
 | #2  | Standardize Zod 4 syntax in `UserSchema`  | ⬜ Pending |
 | #3  | Rename `userTable` → `users`              | ⬜ Pending |
-| #4  | Guard empty update payloads               | ⬜ Pending |
+| #4  | Guard empty update payloads               | ✅ Done    |
 | #5  | Remove email uniqueness TOCTOU pre-checks | ⬜ Pending |
 | #6  | Seed script connection teardown           | ✅ Done    |
 | #7  | Mark request bodies `required: true`      | ✅ Done    |
@@ -32,14 +32,14 @@ Fixes for the remaining issues identified across entity schemas, database table 
 | File                               | Issues           |
 | ---------------------------------- | ---------------- |
 | `src/modules/note/note.entity.ts`  | #1 ✅            |
-| `src/test/note.http.test.ts`       | #1 ✅, #4, #7 ✅ |
+| `src/modules/note/note.test.ts`       | #1 ✅, #4, #7 ✅ |
 | `src/modules/user/user.entity.ts`  | #2               |
 | `src/db/schema.ts`                 | #3               |
 | `src/modules/user/user.service.ts` | #3, #4, #5       |
 | `src/modules/note/note.service.ts` | #4               |
 | `src/db/seed.ts`                   | #3 ✅, #6 ✅     |
-| `src/test/helpers/db.ts`           | #3               |
-| `src/test/user.http.test.ts`       | #3, #4, #7 ✅    |
+| `src/test/db.ts`           | #3               |
+| `src/modules/user/user.test.ts`       | #3, #4, #7 ✅    |
 | `src/utils/route.util.ts`          | #7 ✅            |
 
 ---
@@ -48,14 +48,14 @@ Fixes for the remaining issues identified across entity schemas, database table 
 
 ### #1 — Omit `status` from `NoteCreateSchema` & update test fixture ✅ DONE
 
-**Files:** `src/modules/note/note.entity.ts:17`, `src/test/note.http.test.ts:22-34`
+**Files:** `src/modules/note/note.entity.ts:17`, `src/modules/note/note.test.ts:22-34`
 
 **Root cause:** `NoteCreateSchema` used `NoteSchema.omit({ id: true })`, which left `status` in the create schema. However, `NoteService.createNote` always forces `status: 'pending'`, silently overriding any client input. Worse, because `status` was _required_ by the schema, a client that omitted it got a `400` even though the value was ignored anyway.
 
 **Changes:**
 
 - [x] **`src/modules/note/note.entity.ts`** — Omit both `id` and `status` in `NoteCreateSchema`.
-- [x] **`src/test/note.http.test.ts`** — The `notePayload()` fixture already omits `status`, so no change was needed. The "force pending" behavior is covered by `should ignore a client-supplied status and force pending`.
+- [x] **`src/modules/note/note.test.ts`** — The `notePayload()` fixture already omits `status`, so no change was needed. The "force pending" behavior is covered by `should ignore a client-supplied status and force pending`.
 
 ```ts
 // src/modules/note/note.entity.ts
@@ -98,7 +98,7 @@ email: z.email().openapi({ example: 'john@example.com' }),
 
 ### #3 — Rename `userTable` to `users` and remove unused imports
 
-**Files:** `src/db/schema.ts:18`, `src/modules/user/user.service.ts:5-7`, `src/test/helpers/db.ts:2`, `src/test/user.http.test.ts:5`, `src/db/seed.ts`
+**Files:** `src/db/schema.ts:18`, `src/modules/user/user.service.ts:5-7`, `src/test/db.ts:2`, `src/modules/user/user.test.ts:5`, `src/db/seed.ts`
 
 **Root cause:** `src/db/schema.ts` exports `notes` (plural table name) alongside `userTable` (singular with `Table` suffix). `user.service.ts` also imports the unused type `User`.
 
@@ -106,8 +106,8 @@ email: z.email().openapi({ example: 'john@example.com' }),
 
 - [ ] **`src/db/schema.ts`** — Rename export `userTable` to `users`.
 - [ ] **`src/modules/user/user.service.ts`** — Update import from `userTable` to `users`; remove unused `User` type import; replace all 20 occurrences of `userTable` with `users`.
-- [ ] **`src/test/helpers/db.ts`** — Update import and the `db.delete(userTable)` call.
-- [ ] **`src/test/user.http.test.ts`** — Update import and the 3 query sites.
+- [ ] **`src/test/db.ts`** — Update import and the `db.delete(userTable)` call.
+- [ ] **`src/modules/user/user.test.ts`** — Update import and the 3 query sites.
 - [x] **`src/db/seed.ts`** — Already done: the file no longer imports `userTable` at all (it only imports `notes`).
 
 ```ts
@@ -136,9 +136,20 @@ import type { UserCreate, UserUpdate } from "./user.entity.ts";
 
 ## Phase 2 — Service Reliability & Error Handling
 
-### #4 — Guard empty update payloads
+### #4 — Guard empty update payloads ✅ DONE
 
-**Files:** `src/modules/note/note.service.ts:33-42`, `src/modules/user/user.service.ts:79-95`, `src/test/note.http.test.ts`, `src/test/user.http.test.ts`
+> **Decision (final):** an empty `PUT` body returns **`400`** with
+> `{ message: 'No fields to update' }`. The earlier draft returned `200` with the
+> unchanged row; that was rejected because a no-op update is a client mistake,
+> not a success. The guard runs **before** the existence lookup, so `{}` returns
+> `400` even for an unknown id (never `404`, never `500`).
+>
+> Implemented in `NoteService.updateNote` and `UserService.updateUser`.
+> Regression tests live in `src/modules/note/note.test.ts` and
+> `src/modules/user/user.test.ts` (empty body on existing id, empty body on
+> missing id, and row-unchanged assertions).
+
+**Files:** `src/modules/note/note.service.ts:33-42`, `src/modules/user/user.service.ts:79-95`, `src/modules/note/note.test.ts`, `src/modules/user/user.test.ts`
 
 **Root cause:** If a client sends `PUT` with `{}` (allowed by `.partial()` schemas), `db.update().set({})` throws. Verified against the real SQLite driver:
 
@@ -159,8 +170,8 @@ PUT user {} -> 500 {"message":"Internal Server Error"}
 
 - [ ] **`src/modules/note/note.service.ts`** — Check if `updatedNote` has keys; if empty, return `await this.getNoteById(id)` directly.
 - [ ] **`src/modules/user/user.service.ts`** — Check if `values` has keys; if empty, return `await this.getUserById(id)` directly.
-- [ ] **`src/test/note.http.test.ts`** — Add a regression test under `PUT /note/{id}` asserting `PUT {}` returns `200` with the unchanged note.
-- [ ] **`src/test/user.http.test.ts`** — Add a regression test under `PUT /user/{id}` asserting `PUT {}` returns `200` with the unchanged user.
+- [ ] **`src/modules/note/note.test.ts`** — Add a regression test under `PUT /note/{id}` asserting `PUT {}` returns `200` with the unchanged note.
+- [ ] **`src/modules/user/user.test.ts`** — Add a regression test under `PUT /user/{id}` asserting `PUT {}` returns `200` with the unchanged user.
 
 ```ts
 // src/modules/note/note.service.ts
@@ -179,7 +190,7 @@ static async updateNote(id: string, updatedNote: NoteUpdate) {
 // After:
 static async updateNote(id: string, updatedNote: NoteUpdate) {
   if (Object.keys(updatedNote).length === 0) {
-    return await this.getNoteById(id)
+    throw new HTTPException(400, { message: 'No fields to update' })
   }
 
   const result = await db.update(notes).set(updatedNote).where(eq(notes.id, id)).returning()
@@ -197,7 +208,7 @@ static async updateNote(id: string, updatedNote: NoteUpdate) {
 // src/modules/user/user.service.ts (inside updateUser)
 // After constructing values:
 if (Object.keys(values).length === 0) {
-  return await this.getUserById(id);
+  throw new HTTPException(400, { message: "No fields to update" });
 }
 ```
 
@@ -268,9 +279,9 @@ static async updateUser(id: string, updatedUser: UserUpdate) {
   if (updatedUser.email !== undefined) values.email = updatedUser.email
   if (updatedUser.password !== undefined) values.password = await hashPassword(updatedUser.password)
 
-  // #4 — empty payload: return the current row instead of throwing "No values to set".
+  // #4 — empty payload: reject with 400 instead of throwing "No values to set".
   if (Object.keys(values).length === 0) {
-    return await this.getUserById(id)
+    throw new HTTPException(400, { message: 'No fields to update' })
   }
 
   try {
@@ -312,7 +323,7 @@ function isUniqueViolation(err: unknown): boolean {
 }
 ```
 
-> **Behavior change to watch:** `PUT /user/{id}` with an unknown id and an empty body will now return `404` (from `getUserById`) instead of `500`. That is the desired outcome, but the existing test `should return 404 when the user does not exist` sends a non-empty body, so add a case for the empty-body variant.
+> **Behavior change to watch:** `PUT /user/{id}` with an unknown id and an empty body returns `400` (`No fields to update`), because the #4 guard runs before the existence lookup. The existing test `should return 404 when the user does not exist` sends a non-empty body, so it still asserts `404`; the empty-body variant is covered by its own test.
 
 ---
 
@@ -353,7 +364,7 @@ main()
 
 ### #7 — Mark request bodies `required: true` ✅ DONE
 
-**Files:** `src/utils/route.util.ts:18-27,169`, `src/test/note.http.test.ts`, `src/test/user.http.test.ts`
+**Files:** `src/utils/route.util.ts:18-27,169`, `src/modules/note/note.test.ts`, `src/modules/user/user.test.ts`
 
 **Root cause:** `createRouteUtil` built the body config without a `required` flag. `@hono/zod-openapi` treats a body as optional when that flag is absent, and its optional-body middleware **skips validation entirely** when the request has no `Content-Type` header, injecting `{}` as the "validated" body. The handler then passed `{}` straight to the database.
 
@@ -368,8 +379,8 @@ POST /note no body, no content-type
 **Changes:**
 
 - [x] **`src/utils/route.util.ts`** — Add `required: true` to the generated body config and document why it must stay.
-- [x] **`src/test/note.http.test.ts`** — Add `should return 400 when there is no body and no Content-Type header`.
-- [x] **`src/test/user.http.test.ts`** — Add the same regression test.
+- [x] **`src/modules/note/note.test.ts`** — Add `should return 400 when there is no body and no Content-Type header`.
+- [x] **`src/modules/user/user.test.ts`** — Add the same regression test.
 
 ```ts
 // src/utils/route.util.ts
@@ -403,7 +414,7 @@ POST /note no body, no content-type
 | 2    | #7    | `src/utils/route.util.ts`, `src/test/*.http.test.ts`                                                           | —                 | ✅ Done    |
 | 3    | #6    | `src/db/seed.ts`                                                                                               | —                 | ✅ Done    |
 | 4    | #2    | `src/modules/user/user.entity.ts`                                                                              | —                 | ⬜ Pending |
-| 5    | #3    | `src/db/schema.ts`, `src/modules/user/user.service.ts`, `src/test/helpers/db.ts`, `src/test/user.http.test.ts` | —                 | ⬜ Pending |
+| 5    | #3    | `src/db/schema.ts`, `src/modules/user/user.service.ts`, `src/test/db.ts`, `src/modules/user/user.test.ts` | —                 | ⬜ Pending |
 | 6    | #4    | `src/modules/note/note.service.ts`, `src/modules/user/user.service.ts`, `src/test/*.http.test.ts`              | #3 (table naming) | ⬜ Pending |
 | 7    | #5    | `src/modules/user/user.service.ts`                                                                             | #3, #4            | ⬜ Pending |
 

@@ -54,25 +54,32 @@ cp .env.example .env
 Contents of `.env`:
 
 ```env
-DATABASE_URL=./sqlite.db
-DATABASE_URL_TEST=./sqlite.test.db
+DATABASE_URL=./db/data/sqlite.db
+DATABASE_URL_TEST=./db/data/sqlite.test.db
 ```
 
 #### Database Setup
 
-This project uses `drizzle-orm` with `better-sqlite3` and `drizzle-kit` for schema management:
+This project uses `drizzle-orm` with `better-sqlite3` and `drizzle-kit` for schema management. `src/db/schema.ts` is the schema you edit; the SQL files in `drizzle/` are the history that tests and production apply.
 
-1. **Push schema to local SQLite database:**
+1. **Create the database folder and apply migrations:**
 
    ```bash
-   pnpm run db:push
+   mkdir -p db/data
+   pnpm run db:migrate
    ```
 
-2. **(Optional) Generate migration files:**
+   > `db/data/` is gitignored, so it does not exist on a fresh clone. `drizzle-kit`
+   > cannot create the folder, and the app no longer creates it for you.
+
+2. **After changing `src/db/schema.ts`, generate and apply a migration:**
 
    ```bash
    pnpm run db:generate
+   pnpm run db:migrate
    ```
+
+   Commit the new files in `drizzle/`. Tests rebuild their database by applying these migrations, so a schema change that was never generated will not reach them.
 
 3. **(Optional) Seed sample data:**
 
@@ -85,6 +92,16 @@ This project uses `drizzle-orm` with `better-sqlite3` and `drizzle-kit` for sche
    pnpm run db:studio
    ```
 
+##### Direct schema sync (test/scratch databases only)
+
+There is no `db:push` script. To inject `schema.ts` straight into a throwaway database without creating migration files, run `drizzle-kit` directly:
+
+```bash
+DATABASE_URL=./db/data/sqlite.test.db pnpm exec drizzle-kit push
+```
+
+This introspects the target database, diffs it against `schema.ts`, and executes the DDL immediately. It writes no migration files and no `__drizzle_migrations` history, so `db:migrate` will not know what it did. Point `DATABASE_URL` at a scratch database — never at `db/data/sqlite.db` — and use `--verbose` to inspect the SQL before it runs. Avoid `--force`, which auto-approves data-loss statements.
+
 For more options, refer to the [Drizzle ORM SQLite Documentation](https://orm.drizzle.team/docs/get-started/sqlite-new).
 
 #### Development & Testing
@@ -96,6 +113,10 @@ For more options, refer to the [Drizzle ORM SQLite Documentation](https://orm.dr
 - **Run test suite:**
   ```bash
   pnpm test
+  ```
+- **Typecheck the project:**
+  ```bash
+  pnpm run typecheck
   ```
 - **Interactive Swagger Documentation:**
   Open `http://localhost:3000/doc-ui` in your browser.

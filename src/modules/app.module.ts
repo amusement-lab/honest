@@ -31,12 +31,12 @@ app.route('/note', note)
 app.route('/', common)
 
 app.onError((err, c) => {
-  console.error(JSON.stringify({
-    error: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
-    method: c.req.method,
-    url: c.req.url,
-  }));
+  // console.error(JSON.stringify({
+  //   error: err instanceof Error ? err.message : String(err),
+  //   stack: err instanceof Error ? err.stack : undefined,
+  //   method: c.req.method,
+  //   url: c.req.url,
+  // }));
 
   if (err instanceof HTTPException) {
     return c.json({ message: err.message }, err.status);

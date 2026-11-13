@@ -31,6 +31,12 @@ class NoteService {
   }
 
   static async updateNote(id: string, updatedNote: NoteUpdate) {
+    // `db.update().set({})` throws "No values to set", which would surface as a
+    // 500. Reject an empty payload explicitly instead.
+    if (Object.keys(updatedNote).length === 0) {
+      throw new HTTPException(400, { message: 'No fields to update' })
+    }
+
     const result = await db.update(notes).set(updatedNote).where(eq(notes.id, id)).returning()
 
     if (result.length === 0) throw new HTTPException(

@@ -6,12 +6,15 @@ import { userTable } from '../../db/schema.ts'
 import { verifyPassword } from '../../utils/hash.util.ts'
 import { app, jsonRequest, rawRequest, readJson } from '../../test/http.ts'
 import { resetDatabase } from '../../test/db.ts'
+import type { User } from './user.entity.ts'
 
 const MISSING_ID = '550e8400-e29b-41d4-a716-446655440000'
 
-type UserBody = { id: string; username: string; email: string; password?: string }
+/** The `{ message }` envelope produced by `app.onError`. */
+type ErrorBody = { message: string }
+
 /** Success payload or the `{ message }` error envelope. */
-type UserResponse = UserBody & { message?: string }
+type UserResponse = User & { message?: string }
 
 function userPayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -77,7 +80,7 @@ describe('POST /user', () => {
     const res = await jsonRequest('POST', '/user', { email: 'a@b.com', password: 'secret123' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('username')
+    expect((await readJson<ErrorBody>(res)).message).toContain('username')
   })
 
   it('should return 415 when the content type is not JSON', async () => {
@@ -86,11 +89,11 @@ describe('POST /user', () => {
   })
 
   it('should return 400 when there is no body and no Content-Type header', async () => {
-    // Regression: see note.http.test.ts for the full explanation.
+    // Regression: see note.test.ts for the full explanation.
     const res = await app.request('/user', { method: 'POST' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('username')
+    expect((await readJson<ErrorBody>(res)).message).toContain('username')
   })
 })
 
@@ -107,7 +110,7 @@ describe('GET /user', () => {
     await createUser({ username: 'janedoe', email: 'jane@example.com' })
 
     const res = await jsonRequest('GET', '/user')
-    const body = await readJson<UserBody[]>(res)
+    const body = await readJson<User[]>(res)
 
     expect(res.status).toBe(200)
     expect(body).toHaveLength(2)
@@ -121,7 +124,7 @@ describe('GET /user/{id}', () => {
     const { body: created } = await createUser()
 
     const res = await jsonRequest('GET', `/user/${created.id}`)
-    const body = await readJson<UserBody>(res)
+    const body = await readJson<User>(res)
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ id: created.id, username: 'johndoe', email: 'john@example.com' })
@@ -129,7 +132,7 @@ describe('GET /user/{id}', () => {
 
   it('should return 404 when the user does not exist', async () => {
     const res = await jsonRequest('GET', `/user/${MISSING_ID}`)
-    const body = await readJson(res)
+    const body = await readJson<ErrorBody>(res)
 
     expect(res.status).toBe(404)
     expect(body.message).toContain(MISSING_ID)
@@ -139,7 +142,7 @@ describe('GET /user/{id}', () => {
     const res = await jsonRequest('GET', '/user/not-a-uuid')
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('id')
+    expect((await readJson<ErrorBody>(res)).message).toContain('id')
   })
 })
 
@@ -148,7 +151,7 @@ describe('PUT /user/{id}', () => {
     const { body: created } = await createUser()
 
     const res = await jsonRequest('PUT', `/user/${created.id}`, { username: 'johndoe_updated' })
-    const body = await readJson<UserBody>(res)
+    const body = await readJson<User>(res)
 
     expect(res.status).toBe(200)
     expect(body).toEqual({
@@ -176,7 +179,7 @@ describe('PUT /user/{id}', () => {
     const res = await jsonRequest('PUT', `/user/${first.id}`, { email: 'jane@example.com' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('already exists')
+    expect((await readJson<ErrorBody>(res)).message).toContain('already exists')
   })
 
   it('should return 404 when the user does not exist', async () => {
@@ -191,7 +194,36 @@ describe('PUT /user/{id}', () => {
     const res = await jsonRequest('PUT', `/user/${created.id}`, { email: 'nope' })
 
     expect(res.status).toBe(400)
-    expect((await readJson(res)).message).toContain('email')
+    expect((await readJson<ErrorBody>(res)).message).toContain('email')
+  })
+
+  it('should return 400 when the body is empty', async () => {
+    // Regression: `db.update().set({})` throws "No values to set", which used
+    // to surface as a 500 instead of a 400.
+    const { body: created } = await createUser()
+
+    const res = await jsonRequest('PUT', `/user/${created.id}`, {})
+    const body = await readJson<ErrorBody>(res)
+
+    expect(res.status).toBe(400)
+    expect(body.message).toContain('No fields to update')
+  })
+
+  it('should return 400 for an empty body even when the user does not exist', async () => {
+    const res = await jsonRequest('PUT', `/user/${MISSING_ID}`, {})
+
+    expect(res.status).toBe(400)
+    expect((await readJson<ErrorBody>(res)).message).toContain('No fields to update')
+  })
+
+  it('should leave the row unchanged after an empty-body update', async () => {
+    const { body: created } = await createUser()
+
+    await jsonRequest('PUT', `/user/${created.id}`, {})
+
+    const [row] = await db.select().from(userTable).where(eq(userTable.id, created.id))
+    expect(row.username).toBe('johndoe')
+    expect(row.email).toBe('john@example.com')
   })
 })
 
@@ -200,7 +232,7 @@ describe('DELETE /user/{id}', () => {
     const { body: created } = await createUser()
 
     const res = await jsonRequest('DELETE', `/user/${created.id}`)
-    const body = await readJson<UserBody>(res)
+    const body = await readJson<User>(res)
 
     expect(res.status).toBe(200)
     expect(body.id).toBe(created.id)
