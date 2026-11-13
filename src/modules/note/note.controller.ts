@@ -16,7 +16,7 @@ app.openapi(
   }),
   async (c) => {
     const notes = await NoteService.getAllNotes()
-    return c.json(notes)
+    return c.json(notes, 200)
   })
 
 app.openapi(
@@ -43,7 +43,7 @@ app.openapi(
   async (c) => {
     const { id } = c.req.valid('param')
     const note: Note = await NoteService.getNoteById(id)
-    return c.json(note)
+    return c.json(note, 200)
   })
 
 app.openapi(
@@ -58,7 +58,7 @@ app.openapi(
     const { id } = c.req.valid('param')
     const body = c.req.valid('json')
     const note: Note = await NoteService.updateNote(id, body)
-    return c.json(note)
+    return c.json(note, 200)
   })
 
 app.openapi(
@@ -71,7 +71,7 @@ app.openapi(
   async (c) => {
     const { id } = c.req.valid('param')
     const note: Note = await NoteService.deleteNote(id)
-    return c.json(note)
+    return c.json(note, 200)
   })
 
 export default app

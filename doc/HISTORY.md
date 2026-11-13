@@ -1,5 +1,150 @@
 # History
 
+## 2026-11-13 — Test Infrastructure Refactor & HTTP Integration Tests (`test` branch)
+
+### Context & Motivation
+
+The `test` branch replaced the service-level unit tests with HTTP integration tests that exercise the full Hono stack: routing, Zod validation, controllers, `app.onError`, and Drizzle/SQLite. The previous setup had several gaps:
+
+- Test database setup ran `drizzle-kit push` from `src/db/vitest-global-setup.ts`, bypassing the SQL migrations in `drizzle/`. Tests could pass against a schema that the dev database never applied.
+- The test database defaulted to the repository root (`./sqlite.test.db`), and `DATABASE_URL_TEST` was hardcoded in `vitest.config.ts`'s worker environment instead of being resolved consistently by `globalSetup` and the test workers.
+- Service tests called `NoteService` / `UserService` directly, so HTTP concerns — validation errors, `Content-Type` handling, status codes, 404/400 behavior — were never exercised.
+- Empty `PUT` payloads reached `db.update().set({})`, which throws `No values to set` and surfaced as a 500 instead of a 400.
+- Route bodies were not marked `required: true`, so zod-openapi skipped validation when a request had no `Content-Type` header; the empty body then reached the database and failed as a 500.
+- `NoteCreateSchema` still accepted `status` even though `NoteService.createNote` always forces it to `pending`.
+
+### Solution
+
+1. **HTTP Integration Tests**: Replaced `note.service.test.ts` and `user.service.test.ts` with co-located HTTP tests in `src/modules/note/note.test.ts` and `src/modules/user/user.test.ts`, plus a new `src/modules/common/common.test.ts` for the root route, OpenAPI document, Swagger UI, and unknown routes. Tests call `app.request()` directly (no network server) and cover create/read/update/delete, validation, status codes, persistence, password hashing, and regression cases.
+
+2. **Shared Test Helpers**: Added `src/utils/test.util.ts` with `app`, `jsonRequest`, `rawRequest`, `readJson`, and `resetDatabase`. `resetDatabase()` empties both tables before each test and refuses to run outside test mode.
+
+3. **Migration-Based Test Database**: Replaced `src/db/vitest-global-setup.ts` with `src/utils/test-setup.util.ts`. The global setup deletes stale test database/journal/WAL/SHM files, creates `db/data/`, applies the migrations in `drizzle/` through `drizzle-orm/better-sqlite3/migrator`, and deletes the throwaway database on teardown. `setupSucceeded` prevents teardown from deleting anything after a failed setup.
+
+4. **Test Database Guards & Paths**: Moved the default database paths to `./db/data/sqlite.db` and `./db/data/sqlite.test.db` in `.env.example`, `drizzle.config.ts`, `src/db/index.ts`, and the test setup. `src/db/index.ts` now refuses to open the development database when running in test mode, and the test setup refuses to delete it.
+
+5. **Vitest Configuration**: Updated `vitest.config.ts` for Vitest 5: explicit `src/**/*.test.ts` include, `fileParallelism: false` because all test files share one SQLite file, `isolate: true`, and explicit `VITEST` / `NODE_ENV` test env. Removed `globals: true`; tests import Vitest APIs explicitly.
+
+6. **Regression Fixes**: Marked route request bodies as `required: true` in `CreateRouteUtil`, omitted `status` from `NoteCreateSchema`, and added empty-payload guards to `NoteService.updateNote` and `UserService.updateUser` so both return 400 instead of a Drizzle 500. Controllers now return explicit `c.json(value, 200)` responses to satisfy the typed success-status generics.
+
+7. **Route Utility Typing**: Added `ResponseSchema` and `Status` generics (constrained to Hono's `SuccessStatusCode`), plus `SuccessResponse` / `RouteResponses` types, so the route's success status and response schema are type-checked together. Request bodies are always `required: true`.
+
+8. **Dependencies & Tooling**: Removed the `db:push` script and added `typecheck` (`tsc --noEmit`). Upgraded Vitest to `^5.1.0`, `@types/better-sqlite3` to `^9.6.0`, and refreshed Hono, Zod, Drizzle, better-sqlite3, dotenv, tsx, and related packages. Cleaned up `pnpm-workspace.yaml` and added `db/data/` plus `coverage/` to `.gitignore`.
+
+9. **Documentation**: Updated `README.md` with the current tech stack, migration-first database setup, the removed `db:push` script, and the `typecheck` command. Updated `doc/plan/refactor the code 2.md` to reflect completed items and the move from service tests to HTTP tests.
+
+### Files Changed
+
+#### Tests
+
+##### `src/modules/note/note.test.ts` (NEW, replaces `src/modules/note/note.service.test.ts`)
+
+- HTTP coverage for `POST`, `GET`, `GET /{id}`, `PUT /{id}`, and `DELETE /{id}`
+- Covers forced `pending` status, required fields, numeric validation, ISO dates, UUID params, 404s, empty updates, non-JSON content types, and missing bodies
+
+##### `src/modules/user/user.test.ts` (NEW, replaces `src/modules/user/user.service.test.ts`)
+
+- HTTP coverage for user CRUD
+- Verifies passwords are hashed in the database and never returned in responses
+- Covers duplicate emails, malformed emails, short passwords, re-hashing on update, 404s, empty updates, and content-type handling
+
+##### `src/modules/common/common.test.ts` (NEW)
+
+- Verifies `GET /`, the OpenAPI document at `/doc`, the Swagger UI at `/doc-ui`, and 404s for unknown paths/methods
+
+##### `src/modules/note/note.service.test.ts` & `src/modules/user/user.service.test.ts` (DELETED)
+
+- Replaced by the HTTP integration tests above
+
+##### `src/utils/test.util.ts` (NEW)
+
+- Exports `app`, `jsonRequest`, `rawRequest`, `readJson`, and `resetDatabase`
+- `resetDatabase` guards against running outside test mode
+
+##### `src/utils/test-setup.util.ts` (NEW, replaces `src/db/vitest-global-setup.ts`)
+
+- Recreates the test database from `drizzle/` migrations
+- Deletes the test database and journal/WAL/SHM files on teardown
+- Refuses to touch the development database
+
+##### `src/db/vitest-global-setup.ts` (DELETED)
+
+- Replaced by the migration-based setup above
+
+#### Application Code
+
+##### `src/modules/note/note.entity.ts`
+
+- `NoteCreateSchema` now omits both `id` and `status`
+
+##### `src/modules/note/note.service.ts`
+
+- `updateNote` rejects an empty payload with `400 No fields to update`
+
+##### `src/modules/user/user.service.ts`
+
+- `updateUser` rejects an empty payload with `400 No fields to update` before the existence lookup
+
+##### `src/modules/note/note.controller.ts` & `src/modules/user/user.controller.ts`
+
+- Success responses now return explicit `200` status codes
+
+##### `src/utils/route.util.ts`
+
+- Added `required: true` to JSON request bodies
+- Added `ResponseSchema` / `Status` generics and typed success/error response maps
+- Documented why `required: true` and omitted success `content` matter
+
+##### `src/db/index.ts`
+
+- Defaults to `./db/data/sqlite.db` and `./db/data/sqlite.test.db`
+- Exports `isTest`
+- Throws if test mode resolves to the development database
+- Removed the explicit `journal_mode = WAL` pragma
+
+##### `src/modules/app.module.ts`
+
+- Commented out the structured `console.error` logging in `app.onError` (left in place for later re-enablement)
+
+#### Configuration & Tooling
+
+##### `package.json` & `pnpm-lock.yaml`
+
+- Removed `db:push`
+- Added `typecheck`
+- Upgraded `vitest` to `^5.1.0`, `@types/better-sqlite3` to `^9.6.0`, `hono` to `^4.13.18`, `zod` to `4.6.7`, `drizzle-orm` to `^0.45.4`, `better-sqlite3` to `^13.1.1`, `drizzle-kit` to `^0.31.11`, `dotenv` to `^18.0.10`, `@hono/node-server` to `^2.1.8`, `@hono/swagger-ui` to `^0.6.2`, `tsx` to `^4.23.15`, and `npm-check-updates` to `^23.1.1`
+
+##### `vitest.config.ts`
+
+- Added explicit test include, serial file execution, and test-mode env
+- Removed `globals: true` and the hardcoded `DATABASE_URL_TEST`
+
+##### `.env.example`, `drizzle.config.ts`, & `.gitignore`
+
+- Moved database paths under `db/data/`
+- Added `db/data/` and `coverage/` ignore rules
+
+##### `pnpm-workspace.yaml`
+
+- Removed the obsolete `better-sqlite3: false` allow-list entry and `onlyBuiltDependencies`
+- Updated `minimumReleaseAgeExclude`
+
+#### Documentation
+
+##### `README.md`
+
+- Updated tech stack, database setup (migrations instead of `db:push`), test setup, and `typecheck` command
+
+##### `doc/plan/refactor the code 2.md`
+
+- Updated statuses and test file references after the HTTP test migration
+
+##### `doc/HISTORY.md`
+
+- Added this entry
+
+---
+
 ## 2026-09-20 — Database Migration from PostgreSQL to SQLite (`better-sqlite3`)
 
 ### Context & Motivation

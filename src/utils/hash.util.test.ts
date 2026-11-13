@@ -46,4 +46,3 @@ describe('hash utility', () => {
     expect(await verifyPassword(password, hash2)).toBe(true)
   })
 })
-

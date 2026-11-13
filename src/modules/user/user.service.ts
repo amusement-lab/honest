@@ -63,6 +63,12 @@ class UserService {
   }
 
   static async updateUser(id: string, updatedUser: UserUpdate) {
+    // Checked before the existence lookup so an empty payload always yields 400,
+    // even for an unknown id.
+    if (Object.keys(updatedUser).length === 0) {
+      throw new HTTPException(400, { message: 'No fields to update' })
+    }
+
     const existing = await db.select({ id: userTable.id, email: userTable.email }).from(userTable).where(eq(userTable.id, id)).limit(1)
     if (existing.length === 0) throw new HTTPException(
       404,
