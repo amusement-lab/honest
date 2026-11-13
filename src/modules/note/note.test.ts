@@ -3,8 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 
 import { db } from '../../db/index.ts'
 import { notes } from '../../db/schema.ts'
-import { app, jsonRequest, rawRequest, readJson } from '../../test/http.ts'
-import { resetDatabase } from '../../test/db.ts'
+import { app, jsonRequest, rawRequest, readJson, resetDatabase } from '../../utils/test.util.ts'
 import type { Note } from './note.entity.ts'
 
 const MISSING_ID = '550e8400-e29b-41d4-a716-446655440000'

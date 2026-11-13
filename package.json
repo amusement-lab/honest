@@ -13,23 +13,23 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.1",
-    "@hono/swagger-ui": "^0.6.1",
+    "@hono/node-server": "^2.1.8",
+    "@hono/swagger-ui": "^0.6.2",
     "@hono/zod-openapi": "^1.6.3",
     "@noble/hashes": "^2.4.0",
-    "better-sqlite3": "^13.0.3",
-    "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.8",
-    "zod": "4.6.5"
+    "better-sqlite3": "^13.1.1",
+    "dotenv": "^18.0.10",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.18",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^26.6.2",
-    "drizzle-kit": "^0.31.10",
-    "npm-check-updates": "^23.1.0",
-    "tsx": "^4.23.13",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "^0.31.11",
+    "npm-check-updates": "^23.1.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^5.1.0"
   }
 }

@@ -2,9 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Tests live next to their module; shared helpers live in src/test.
+    // Tests live next to their module; shared helpers live in src/utils.
     include: ['src/**/*.test.ts'],
-    globalSetup: ['./src/test/global-setup.ts'],
+    globalSetup: ['./src/utils/test-setup.util.ts'],
     // Every test file shares one SQLite file, so files must not run in parallel.
     fileParallelism: false,
     // Keep module state per file. Nothing closes the shared connection between

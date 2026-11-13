@@ -11,7 +11,7 @@ const devDbPath = process.env.DATABASE_URL || './db/data/sqlite.db';
 
 // Tests get their own throwaway file; the dev server and seed script use the
 // regular one. This guard refuses to open the dev file in test mode, and
-// `src/test/global-setup.ts` refuses to delete it.
+// `src/utils/test-setup.util.ts` refuses to delete it.
 const dbPath = isTest
   ? process.env.DATABASE_URL_TEST || './db/data/sqlite.test.db'
   : devDbPath;
